@@ -7,7 +7,7 @@ WriteMakefile(
     'PREREQ_PM'    => { 'File::Spec'   => 0,
                         'IO::File'     => 0,
                         'Data::Dumper' => 0,},
- ($] >= 5.005 ? (
+    ($] >= 5.005 ? (
     'AUTHOR'       => 'Burak Gursoy <burak@cpan.org>',
     'ABSTRACT'     => 'Perl extension for parsing mp3 lists',
      ) : ()),

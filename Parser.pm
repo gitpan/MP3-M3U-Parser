@@ -4,7 +4,7 @@ use File::Spec ();
 use IO::File   ();
 use vars qw/$AUTOLOAD $VERSION/;
 
-$VERSION = '1.03';
+$VERSION = '1.04';
 
 sub new {
    my $class = shift;
@@ -232,7 +232,7 @@ sub export {
             $sc = $#{$self->{M3U}{$cd}}+1;
             next unless $sc;
             print $fh qq~<cd name="$cd" drive="$self->{DRIVE}{$cd}" songs="$sc">\n~;
-            foreach $m3u (sort @{ $self->{M3U}{$cd} }) {
+            foreach $m3u (@{ $self->{M3U}{$cd} }) {
                print $fh sprintf qq~<song id3="%s" time="%s">%s</song>\n~,$self->escape($m3u->[0]) || '',$m3u->[1] || '',$self->escape($m3u->[2]);
             }
             print $fh "</cd>\n";
@@ -260,7 +260,7 @@ sub export {
             $cdrom .= "$self->{DRIVE}{$cd}\\" unless($drives eq 'off');
             $cdrom .= $cd;
             print $fh qq~<tr><td colspan="2"><b>$cdrom</b></td></tr>\n~;
-            foreach $m3u (sort @{ $self->{M3U}{$cd} }) {
+            foreach $m3u (@{ $self->{M3U}{$cd} }) {
                $song = $m3u->[0];
                unless($song) {
                   $song = (split /\\/, $m3u->[2])[-1] || $m3u->[2];

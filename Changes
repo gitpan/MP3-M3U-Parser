@@ -2,6 +2,11 @@ Revision history for Perl extension MP3::M3U::Parser.
 
 Time zone is GMT+2.
 
+1.04 Sun Jun 22 15:54:43 2003
+	=> Removed sort() from export() method (the module was using 
+	   it on the $self->{M3U}{$cd} object table). 
+	   Thanks to Patrick Bourdon.
+
 1.03 Tue Jun 10 22:38:53 2003
 	=> HTML code is valid HTML 4.01 & valid CSS. But you can get 
 	   "non SGML character number" errors if your list(s) have 
@@ -20,7 +25,7 @@ Time zone is GMT+2.
 
 1.01 Wed Feb 26 18:14:51 2003
 	=> Fixed definition of Dump() in the POD. 
-	=> Added the definition 	of the parsed data structure to 
+	=> Added the definition of the parsed data structure to 
 	   the POD. 
 	=> Added the test 't/use.t' to the distribution. Module's 
 	   code didn't changed.
