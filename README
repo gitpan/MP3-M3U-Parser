@@ -1,5 +1,5 @@
-MP3::M3U::Parser version 1.0
-===========================
+MP3::M3U::Parser
+================
 
 Parses M3U mp3 playlists and if wanted, exports the parsed data to 
 formats like xml and html.
@@ -12,12 +12,14 @@ To install this module type the following:
 
    perl Makefile.PL
    make
+   make test
    make install
 
 or under Windows:
 
    perl Makefile.PL
    nmake
+   nmake test
    nmake install
 
 DEPENDENCIES
@@ -36,4 +38,3 @@ Copyright (C) 2003 Burak Gürsoy <burak@cpan.org>. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
-

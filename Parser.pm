@@ -4,11 +4,11 @@ use File::Spec ();
 use IO::File   ();
 use vars qw/$AUTOLOAD $VERSION/;
 
-$VERSION = '1.0';
+$VERSION = '1.02';
 
 sub new {
-   my $class   = shift;
-   my $self    = {};
+   my $class = shift;
+   my $self  = {};
    bless $self, $class;
 
       $self->error("Parameters passed to new() must be in 'param => value' format!") if(scalar(@_) % 2);
@@ -121,7 +121,7 @@ sub parse_file {
    # long: total_time, total_songs, total_average_time
    my($ttime,$tsong,$taver) = (0,0,0);
    # while loop variables. j: junk data.
-   my($m3u,$j,$song,$j2,$sec,$temp_sec);
+   my($m3u,$j,@song,$j2,$sec,$temp_sec);
 
       # Open the file to parse:
       $fh->open("< $file") or $self->error("I could't open '$file': $!");
@@ -134,11 +134,11 @@ RECORD:
       next if $m3u =~ m,^#EXTM3U,i;      # First line is just a comment.
       # If the extra information exists, parse it:
       if($m3u =~ m!#EXTINF!i) {
-         ($j ,$song) = split(/\,/,$m3u); # ($artist,$song) = split / - /, $song; ???
+         ($j ,@song) = split(/\,/,$m3u); # ($artist,$song) = split / - /, @song; ???
          ($j ,$sec)  = split(/:/,$j);
          $ttime     += $sec;
          $temp_sec   = $sec;
-         $self->{M3U}{$cd}[$index]->[0] = $song;
+         $self->{M3U}{$cd}[$index]->[0] = join(",", @song);
          if ($sec) {
             $sec = $self->seconds($sec);
          } else {
@@ -232,9 +232,10 @@ sub export {
       my $sc = 0;
          foreach $cd (sort keys %{ $self->{M3U} }) {
             $sc = $#{$self->{M3U}{$cd}}+1;
+            next unless $sc;
             print $fh qq~<cd name="$cd" drive="$self->{DRIVE}{$cd}" songs="$sc">\n~;
             foreach $m3u (sort @{ $self->{M3U}{$cd} }) {
-               print $fh sprintf qq~<song id3="%s" time="%s">%s</song>\n~,$self->escape($m3u->[0]),$m3u->[1],$self->escape($m3u->[2]);
+               print $fh sprintf qq~<song id3="%s" time="%s">%s</song>\n~,$self->escape($m3u->[0]) || '',$m3u->[1] || '',$self->escape($m3u->[2]);
             }
             print $fh "</cd>\n";
             $sc = 0;
@@ -252,7 +253,8 @@ sub export {
          print $fh $self->html('start',total => $self->{TOTAL_FILES},
                                        ttime => $self->{TOTAL_TIME},
                                        songs => $self->{TOTAL_SONGS},
-                                       file  => $file);
+                                       file  => $file,
+                                       encod => $encoding);
          my $song;
          my $cdrom;
          foreach $cd (sort keys %{ $self->{M3U} }) {
@@ -337,7 +339,7 @@ sub read_dir {
       next unless /\.m3u$/i;
       push @list, File::Spec->catfile($path,$_);
    }
-#   File::Find::find(sub {return unless /\.m3u$/i; push @list, File::Spec->catfile($path,$_)}, $path);
+
    return(sort @list);
 }
 
@@ -345,7 +347,7 @@ sub seconds {
    # Format seconds if wanted.
    my $self = shift;
    my $all  = shift || 1;
-   return($all) unless( $self->{seconds} eq 'format' );
+   return($all) unless( $self->{seconds} eq 'format' and $all !~ /:/);
       $all  = $all/60;
    my $min  = int($all);
    my $sec  = sprintf("%02d",int(($all - $min)*60));
@@ -449,8 +451,11 @@ sub html {
       }
    }
 
-   unless($self->{AVERAGE_TIME}) {
-      $self->{AVERAGE_TIME} = '<i>Unknown</i>';
+   my $avertime;
+   if($self->{AVERAGE_TIME}) {
+      $avertime = $self->seconds($self->{AVERAGE_TIME});
+   } else {
+      $avertime = '<i>Unknown</i>';
    }
 
    if ($type eq 'start') {
@@ -459,70 +464,73 @@ sub html {
 return <<HTML_START;
 <html>
  <head>
+
    <title>MP3::M3U::Parser Generated PlayList</title>
+
+   <meta name="Generator" content="MP3::M3U::Parser">
+   <meta http-equiv="content-type" content="text/html; charset=$opt{'encod'}">
+
    <style type="text/css">
-<!--
-  BODY { background   : #000040; }
-.para1 { margin-top   : -42px;
-         margin-left  : 350px;
-         margin-right : 10px;
-         font-family  : "font2, Arial";
-         font-size    : 30px; line-height: 35px;
-         text-align   : left;
-         color        : #E1E1E1;
-         }
-.para2 { margin-top   : 15px;
-         margin-left  : 15px;
-         margin-right : 50px;
-         font-family  : "font1, Arial Black";
-         font-size    : 50px;
-         line-height  : 40px;
-         text-align   : left;
-         color        : #004080;
-         }
-td { font-family : "Arial";
-     color       : "#FFFFFF";
-     font-size   : 13px;
-     }
-.t { font-family : "Arial";
-     color       : "#FFBF00";
-     font-size   : 13px;
-     }
-.ts {font-family : "Arial";
-     color       : "#FFBF00";
-     font-size   : 10px;
-     }
-.s { font-family : "Arial";
-     color       : "#FFFFFF";
-     font-size   : 13px;
-     }
-.info {
-     font-family : "Arial";
-     color       : "#409FFF";
-     font-size   : 10px;
-      }
-.infobig {
-     font-family : "Arial";
-     color       : "#FFBF00";
-     font-size   : 15px;
-      }
--->
+   <!--
+      body   { background   : #000040;
+               font-family  : font1, Arial;
+               color        : #FFFFFF;
+               font-size    : 10pt;    }
+      td     { font-family  : Arial;
+               color        : #FFFFFF;
+               font-size    : 13px;    }
+      .para1 { margin-top   : -42px;
+               margin-left  : 350px;
+               margin-right : 10px;
+               font-family  : font2, Arial;
+               font-size    : 30px; 
+               line-height  : 35px;
+               color        : #E1E1E1;
+               text-align   : left;    }
+      .para2 { margin-top   : 15px;
+               margin-left  : 15px;
+               margin-right : 50px;
+               font-family  : font1, Arial Black;
+               font-size    : 50px;
+               line-height  : 40px;
+               color        : #004080;
+               text-align   : left;    }
+      .t     { font-family  : Arial;
+               color        : #FFBF00;
+               font-size    : 13px;    }
+      .ts    { font-family  : Arial;
+               color        : #FFBF00;
+               font-size    : 10px;    }
+      .s     { font-family  : Arial;
+               color        : #FFFFFF;
+               font-size    : 13px;    }
+      .info  { font-family  : Arial;
+               color        : #409FFF;
+               font-size    : 10px;    }
+      .infob { font-family  : Arial;
+               color        : #FFBF00;
+               font-size    : 15px;    }
+    -->
    </style>
+
  </head>
-<body BGCOLOR="#000080" topmargin="0" leftmargin="0" text="#FFFFFF">
+
+<body topmargin="0" leftmargin="0">
+
  <div align="center">
-  <div CLASS="para2" align="center"><p>MP3::M3U::Parser</p></div>
-  <div CLASS="para1" align="center"><p>playlist</p></div>
+  <div class="para2" align="center"><p>MP3::M3U::Parser</p></div>
+  <div class="para1" align="center"><p>playlist</p></div>
  </div>
 
 <hr align="left" width="90%" noshade size="1" color="#FFBF00">
  <div align="right">
+
   <table border="0" cellspacing="0" cellpadding="0" width="98%">
    <tr><td>
     <span class="ts">$opt{songs}</span> <span class="info"> tracks and 
     <span class="ts">$opt{total}</span> CDs in playlist, 
       average track length: </span> 
-      <span class="ts">$self->{AVERAGE_TIME}</span><span class="info">.</span>
+      <span class="ts">$avertime</span><span class="info">.</span>
      <br>
     <span class="info">Playlist length: </span> 
      $time
@@ -532,9 +540,10 @@ td { font-family : "Arial";
     </td>
    </tr>
  </table>
+
 </div>
 <blockquote>
-<p><span class="infobig"><big>$pls:</big></span></p>
+<p><span class="infob"><big>$pls:</big></span></p>
 
 <table border="0" cellspacing="1" cellpadding="2">
 
@@ -563,11 +572,12 @@ sub AUTOLOAD {
 }
 
 sub DESTROY {
-   my $self = shift;
+#   my $self = shift;
 #   delete $self->{$_} foreach keys %$self;
 }
 
 1;
+
 __END__;
 
 =head1 NAME
@@ -649,7 +659,7 @@ Else: you get the time in seconds like; I<256> (if formatted: I<04:15>).
 
 If you don't want to get a list of every song in the m3u list, but want to get 
 a specific group's/singer's songs from the list, set this to the string you want 
-to search. 
+to search. Think this "search" as a parser filter.
 
 Note that, the module will do a *very* basic case-insensitive search. It does 
 dot accept multiple words (if you pass a string like "michael beat it", it will 
@@ -657,13 +667,14 @@ not search every word seperated by space, it will search the string "michael bea
 and probably does not return any results -- it will not match 
 "michael jackson - beat it"), it does not have a boolean search support, etc. If you 
 want to do something more complex, get the parsed tree and use it in your own 
-search function.
+search function, or just re-define the private method C<search> like the private 
+method L<html|/"How can I change the HTML List layout?">.
 
 =item C<-parse_path>
 
 The module assumes that all of the songs in your M3U lists are (or were: 
 the module does not check the existence of them) on the same drive. And it 
-builds a seperate table for drive names like:
+builds a seperate data table for drive names like:
 
    DRIVE => {
              FIRST_LIST => 'G:',
@@ -749,7 +760,7 @@ The keys of the C<%info> hash are:
    files   => Total number of lists parsed
    ttime   => Total time of the songs 
    average => Average time of the songs
-   drive   => Drive manes for parsed lists
+   drive   => Drive names for parsed lists
 
 Note that the 'drive' key is a hash ref, while others are strings. If you 
 have parsed a M3U list named "mp3_01.m3u" and want to learn the drive letter 
@@ -780,7 +791,10 @@ Can be C<xml> or C<html>. Default is C<html>.
 =item C<-encoding>
 
 The exported C<xml> file's encoding. Default is B<ISO-8859-1>. 
-See L<http://www.iana.org/assignments/character-sets> for a list.
+See L<http://www.iana.org/assignments/character-sets> for a list. 
+If you don't define the correct encoding for xml, you can get 
+"not well-formed" errors from the xml parsers. This value is 
+also used in the meta tag section of the html file.
 
 =item C<-drives>
 
@@ -868,7 +882,8 @@ Solution: As you can see in the above examples:
 
       my @lists = keys %results;
 
-Note that the C<.m3u> extension is removed from the file names when parsing.
+Note that the C<.m3u> extension and path information is removed from the file 
+names when parsing.
 
 =item B<How can I "just" export the parsed tree to a format?>
 
@@ -880,10 +895,10 @@ Solution (convert to xml and save):
                          -path    => '/my/path',
                          -seconds => 'format',
                          )
-                         ->parse(1)
-                         ->export(-format   => 'xml',
-                                  -file     => "/my/export/path/mp3.xml",
-                                  -encoding => 'ISO-8859-9');
+                   ->parse(1)
+                   ->export(-format   => 'xml',
+                            -file     => "/my/export/path/mp3.xml",
+                            -encoding => 'ISO-8859-9');
    print "Done!\n";
 
 If you dont need any objects, just call new() followed by parse() followed by 
@@ -924,6 +939,8 @@ if you don't name it like this, the module will not see your changed sub,
 because it belongs to your name space not this module's. Then change what 
 you want. I don't plan to add a template option, because I find it unnecessary. 
 But if you want to do such a thing, this is the solution.
+
+Note: re-definitions generate warnings.
 
 =back
 
