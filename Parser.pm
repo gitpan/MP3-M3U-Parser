@@ -4,7 +4,7 @@ use File::Spec ();
 use IO::File   ();
 use vars qw/$AUTOLOAD $VERSION/;
 
-$VERSION = '1.02';
+$VERSION = '1.03';
 
 sub new {
    my $class = shift;
@@ -15,7 +15,7 @@ sub new {
    my %options = @_; # Parameters;
       $self->validate('new',[qw/-type -path -file -seconds -search -parse_path/],[keys %options]);
 
-   INIT: {
+   INIT:
       $self->{type}          = $options{'-type'}       || 'file'; # file | dir
       $self->{path}          = $options{'-path'}       || '';     # Should never be empty.
       $self->{file}          = $options{'-file'}       || '';     # if type is file, this must be a real file.
@@ -32,9 +32,8 @@ sub new {
       $self->{ACOUNTER}      = 0;     # Counter
       $self->{EXPORT_FORMAT} = undef; # Export to what?
       $self->{ERROR}         = undef; # Contains error messages.
-   }
 
-   CHECK_PARAMS: {
+   CHECK_PARAMS:
       $self->{path} = File::Spec->canonpath($self->{path});
       ($self->{path} and -d $self->{path}) or $self->error("I can't find the directory '$self->{path}': $!");
       if ($self->{type} eq 'file') {
@@ -46,7 +45,6 @@ sub new {
       if ($self->{search_string} and length($self->{search_string}) < 3) {
          $self->error("A search string must be at least three characters long!");
       }
-   }
    return $self;
 }
 
@@ -462,6 +460,8 @@ sub html {
    my $pls = ($self->{TOTAL_FILES} > 1) ? "Playlists and Files" : "Playlist files";
 # Based on WinAmp' s HTML List:
 return <<HTML_START;
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
 <html>
  <head>
 
@@ -473,41 +473,51 @@ return <<HTML_START;
    <style type="text/css">
    <!--
       body   { background   : #000040;
-               font-family  : font1, Arial;
+               font-family  : font1, Arial, serif;
                color        : #FFFFFF;
                font-size    : 10pt;    }
-      td     { font-family  : Arial;
+      td     { background   : none;
+               font-family  : Arial, serif;
                color        : #FFFFFF;
                font-size    : 13px;    }
+      hr     { background   : none;
+               color        : #FFBF00; }
       .para1 { margin-top   : -42px;
                margin-left  : 350px;
                margin-right : 10px;
-               font-family  : font2, Arial;
+               font-family  : font2, Arial, serif;
                font-size    : 30px; 
                line-height  : 35px;
+               background   : none;
                color        : #E1E1E1;
                text-align   : left;    }
       .para2 { margin-top   : 15px;
                margin-left  : 15px;
                margin-right : 50px;
-               font-family  : font1, Arial Black;
+               font-family  : font1, Arial Black, serif;
                font-size    : 50px;
                line-height  : 40px;
+               background   : none;
                color        : #004080;
                text-align   : left;    }
-      .t     { font-family  : Arial;
+      .t     { font-family  : Arial, serif;
+               background   : none;
                color        : #FFBF00;
                font-size    : 13px;    }
-      .ts    { font-family  : Arial;
+      .ts    { font-family  : Arial, serif;
                color        : #FFBF00;
+               background   : none;
                font-size    : 10px;    }
-      .s     { font-family  : Arial;
+      .s     { font-family  : Arial, serif;
+               background   : none;
                color        : #FFFFFF;
                font-size    : 13px;    }
-      .info  { font-family  : Arial;
+      .info  { font-family  : Arial, serif;
+               background   : none;
                color        : #409FFF;
                font-size    : 10px;    }
-      .infob { font-family  : Arial;
+      .infob { font-family  : Arial, serif;
+               background   : none;
                color        : #FFBF00;
                font-size    : 15px;    }
     -->
@@ -515,15 +525,15 @@ return <<HTML_START;
 
  </head>
 
-<body topmargin="0" leftmargin="0">
+<body>
 
  <div align="center">
   <div class="para2" align="center"><p>MP3::M3U::Parser</p></div>
   <div class="para1" align="center"><p>playlist</p></div>
  </div>
 
-<hr align="left" width="90%" noshade size="1" color="#FFBF00">
- <div align="right">
+<hr align="left" width="90%" noshade="noshade" size="1">
+ <div align="left">
 
   <table border="0" cellspacing="0" cellpadding="0" width="98%">
    <tr><td>
@@ -553,7 +563,7 @@ HTML_START
       return <<HTML_END;
   </table>
 </blockquote>
-<hr align="left" width="90%" noshade size="1" color="#FFBF00">
+<hr align="left" width="90%" noshade size="1">
 <span class="s">This HTML File is based on 
 <a href="http://www.winamp.com">WinAmp</a>'s HTML List.</span>
 </body>
@@ -825,7 +835,7 @@ using C<eval> for all method calls can be helpful if you don't want to die:
       my %results;
       eval { %results = $parser->parse };
       if($@) {
-         warn "There was an error: $parser->{ERROR}";
+         warn "There was an error: $@";
          return;
       } else {
          # do something with %results ...
@@ -834,7 +844,7 @@ using C<eval> for all method calls can be helpful if you don't want to die:
    }
 
 As you can see, if there is an error, you can catch this with C<eval> and 
-access the error message with the special object table called C<ERROR>.
+access the error message with the special Perl variable C<$@>.
 
 =head1 EXAMPLES
 
@@ -882,7 +892,7 @@ Solution: As you can see in the above examples:
 
       my @lists = keys %results;
 
-Note that the C<.m3u> extension and path information is removed from the file 
+Note that the C<.m3u> extension and path information are removed from the file 
 names when parsing.
 
 =item B<How can I "just" export the parsed tree to a format?>
@@ -951,8 +961,6 @@ M3U parser in CPAN, but it does not have the functionality I want and it skips
 the EXTINFO lines. So, I wrote this module. This module does not check the 
 existence of the mp3 files, it just parses the playlist entries.
 
-Tested under MS Win98/2000 (Active Perl 5.8.0 Build 804) and RH Linux 8.0 (Perl 5.8.0).
-
 =head2 TIPS
 
 =over 4
@@ -981,10 +989,6 @@ you can have an easy maintained archive.
 =item *
 
 Better xml transformation.
-
-=item * 
-
-Add C<flock()> (maybe).
 
 =item *
 

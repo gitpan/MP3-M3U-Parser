@@ -2,17 +2,28 @@ Revision history for Perl extension MP3::M3U::Parser.
 
 Time zone is GMT+2.
 
+1.03 Tue Jun 10 22:38:53 2003
+	=> HTML code is valid HTML 4.01 & valid CSS. But you can get 
+	   "non SGML character number" errors if your list(s) have 
+	   some of the undefined chars. I may add a filter to 
+	   escape these in the future.
+	=> Some minor fixes.
+
 1.02 Mon Mar 10 22:33:04 2003
-	Fixed the comma bug. Reported by Brandon Lederer.
-	Fixed a bug in the formatting seconds part.
-	Empty result keys (if a search didn't find any matches in a list for example) are ignored when exporting to xml.
-	Fixed the html playlist (css code was wrong and only IE was displaying it correctly).
-	Updated the POD.
+	=> Fixed the comma bug. Reported by Brandon Lederer.
+	=> Fixed a bug in the formatting seconds part.
+	=> Empty result keys (if a search didn't find any matches 
+	   in a list for example) are ignored when exporting to xml.
+	=> Fixed the html playlist (css code was wrong and only 
+	   IE was displaying it correctly).
+	=> Updated the POD.
 
 1.01 Wed Feb 26 18:14:51 2003
-	Fixed definition of Dump() in the POD. Added the definition 
-	of the parsed data structure to the POD. Added the test 't/use.t'
-	to the distribution. Module's code didn't changed.
+	=> Fixed definition of Dump() in the POD. 
+	=> Added the definition 	of the parsed data structure to 
+	   the POD. 
+	=> Added the test 't/use.t' to the distribution. Module's 
+	   code didn't changed.
 
 1.00 Tue Feb 25 19:23:14 2003
-	First release.
+	=> First release.
