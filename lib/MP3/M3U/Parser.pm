@@ -11,11 +11,7 @@ use constant SONG    => 4;
 
 use constant MAXDATA => 4; # Maximum index number of the data table
 
-use File::Spec ();
-use IO::File   ();
-use Cwd;
-
-$VERSION = '2.01';
+$VERSION = '2.1';
 
 sub new {
    # -parse_path -seconds -search -overwrite
@@ -52,8 +48,8 @@ sub parse {
    my $file;
    foreach $file (@files) {
       unless(ref $file) {
-         $file = File::Spec->canonpath($file);
-         -e $file or die "'$file' does not exists!";
+         $file = $self->locate_file($file);
+         -e $file or die "'$file' does not exist!";
       }
       $self->parse_file($file);
    }
@@ -106,6 +102,7 @@ sub parse_file {
       @fh = split /\n/, $$file;
    } else {
       # Open the file to parse:
+      require IO::File;
       $fh = IO::File->new;
       $fh->open("< $file") or die "I could't open '$file': $!" unless $ref;
    }
@@ -227,14 +224,17 @@ sub result {
 }
 
 sub locate_file {
+   require File::Spec;
+
    my $self = shift;
    my $file = shift;
    if ($file !~ m{[\\/]}) {
       # if $file does not have a slash in it then it is in the cwd.
       # don't know if this code is valid in some other filesystems.
-      $file = File::Spec->canonpath(getcwd()."/".$file);
+      require Cwd;
+      $file = Cwd::getcwd()."/".$file;
    }
-   return $file;
+   return File::Spec->canonpath($file);
 }
 
 sub search {
@@ -301,34 +301,43 @@ sub seconds {
 sub export {
    my $self      = shift;
    my %opt       = scalar(@_) % 2 ? () : (@_);
-   my $format    = $opt{'-format'}    || $self->{'expformat'} || 'html';
-   my $file      = File::Spec->canonpath($opt{'-file'}        || sprintf 'mp3_m3u%s.%s', $self->{EXPORTF}, $format);
-   my $encoding  = $opt{'-encoding'}  || $self->{'encoding'}  || 'ISO-8859-1';
-   my $drives    = $opt{'-drives'}    || $self->{'expdrives'} || 'on';
-   my $overwrite = $opt{'-overwrite'} || $self->{'overwrite'} ||  0; # global overwrite || local overwrite || don't overwrite
-   die "Unknown export format '$format'!" if $format !~ m[^(?:x|ht)ml$];
-   if (-e $file and not $overwrite) {
-      die "The export file '$file' exists on disk and you didn't select to overwrite it!";
+   my $format    = $opt{'-format'}    || $self->{'expformat'}    || 'html';
+   my $file      = $opt{'-file'}      || sprintf('mp3_m3u%s.%s', $self->{EXPORTF}, $format);
+   my $encoding  = $opt{'-encoding'}  || $self->{'encoding'}     || 'ISO-8859-1';
+   my $drives    = $opt{'-drives'}    || $self->{'expdrives'}    || 'on';
+   my $overwrite = $opt{'-overwrite'} || $self->{'overwrite'}    ||  0; # global overwrite || local overwrite || don't overwrite
+   my $to_scalar = $opt{'-toscalar'} || $self->{'exptoscalar'} ||  0;
+      $file      = $self->locate_file($file) unless $to_scalar;
+   my $fh;
+   if ($to_scalar) {
+      die "-toscalar must be a SCALAR ref!" unless ref $to_scalar and ref $to_scalar eq 'SCALAR';   
    }
-   my $fh = IO::File->new;
+   unless ($to_scalar) {
+      if (-e $file and not $overwrite) {
+         die "The export file '$file' exists on disk and you didn't select to overwrite it!";
+      }
+      require IO::File;
+      $fh = IO::File->new;
       $fh->open("> $file") or die "I can't open export file '$file' for writing: $!"; 
+   }
    my($cd,$m3u);
+   my $OUTPUT = '';
    if ($format eq 'xml') {
       $self->{TOTAL_TIME} = $self->seconds($self->{TOTAL_TIME}) if $self->{TOTAL_TIME} > 0;
-      printf $fh qq~<?xml version="1.0" encoding="%s" ?>\n~, $encoding;
-      printf $fh qq~<m3u lists="%s" songs="%s" time="%s" average="%s">\n~, $self->{TOTAL_FILES}, $self->{TOTAL_SONGS}, $self->{TOTAL_TIME}, $self->{AVERAGE_TIME};
+      $OUTPUT .= sprintf qq~<?xml version="1.0" encoding="%s" ?>\n~, $encoding;
+      $OUTPUT .= sprintf qq~<m3u lists="%s" songs="%s" time="%s" average="%s">\n~, $self->{TOTAL_FILES}, $self->{TOTAL_SONGS}, $self->{TOTAL_TIME}, $self->{AVERAGE_TIME};
       my $sc = 0;
       foreach $cd (@{ $self->{'_M3U_'} }) {
          $sc = $#{$cd->{data}}+1;
          next unless $sc;
-         printf $fh qq~<list name="%s" drive="%s" songs="%s">\n~, $cd->{list}, $cd->{drive}, $sc;
+         $OUTPUT .= sprintf qq~<list name="%s" drive="%s" songs="%s">\n~, $cd->{list}, $cd->{drive}, $sc;
          foreach $m3u (@{ $cd->{data} }) { 
-            printf $fh qq~<song id3="%s" time="%s">%s</song>\n~, $self->escape($m3u->[ID3]) || '',$m3u->[LEN] || '',$self->escape($m3u->[PATH]);
+            $OUTPUT .= sprintf qq~<song id3="%s" time="%s">%s</song>\n~, $self->escape($m3u->[ID3]) || '',$m3u->[LEN] || '',$self->escape($m3u->[PATH]);
          }
-         print $fh "</list>\n";
+         $OUTPUT .= "</list>\n";
          $sc = 0;
       }
-      print $fh "</m3u>\n";
+      $OUTPUT .= "</m3u>\n";
    } else {
       require Text::Template;
       # I don't think that weird numbers in the html mean anything 
@@ -353,18 +362,18 @@ sub export {
               SONGS       => $self->{TOTAL_SONGS},
               TOTAL       => $self->{TOTAL_FILES},
               AVERTIME    => $self->{AVERAGE_TIME} ? $self->seconds($self->{AVERAGE_TIME}) : '<i>Unknown</i>',
-              FILE        => $self->locate_file($file),
+              FILE        => $to_scalar ? '' : $self->locate_file($file),
               TOTAL_FILES => $self->{TOTAL_FILES},
               TOTAL_TIME  => @tmptime ? [@tmptime] : '',
       };
 
-      print $fh $self->tcompile(template => $t{up}, params=> {HTML => $HTML});
+      $OUTPUT .= $self->tcompile(template => $t{up}, params=> {HTML => $HTML});
       my($song,$cdrom, $dlen);
       foreach $cd (@{ $self->{'_M3U_'} }) {
          next if($#{$cd->{data}} < 0);
          $cdrom .= "$cd->{drive}\\" unless($drives eq 'off');
          $cdrom .= $cd->{list};
-         printf $fh $t{cd}."\n", $cdrom;
+         $OUTPUT .= sprintf $t{cd}."\n", $cdrom;
          foreach $m3u (@{ $cd->{data} }) {
             $song = $m3u->[ID3];
             unless($song) {
@@ -373,13 +382,18 @@ sub export {
             }
             $dlen = $m3u->[LEN] ? $self->seconds($m3u->[LEN]) : '&nbsp;';
             $song = $song       ? $self->escape($song)        : '&nbsp;';
-            printf $fh "%s\n", $self->tcompile(template => $t{data}, params=> {data => {len => $dlen, song => $song}});
+            $OUTPUT .= sprintf "%s\n", $self->tcompile(template => $t{data}, params=> {data => {len => $dlen, song => $song}});
          }
          $cdrom = '';
       }
-      print $fh $t{down};
+      $OUTPUT .= $t{down};
    }
-   $fh->close;
+   if($to_scalar) {
+      $$to_scalar = $OUTPUT;
+   } else {
+      print $fh $OUTPUT;
+      $fh->close;
+   }
    $self->{EXPORTF}++;
    return $self if defined wantarray;
 }
@@ -512,8 +526,10 @@ sub template {
    $time;
 
      %><br>
-    <span class="info">Right-click <a href="file://<%$HTML{FILE}%>">here</a>
-      to save this HTML file.</span>
+    <% 
+      qq~<span class="info">Right-click <a href="file://$HTML{FILE}">here</a>
+      to save this HTML file.</span>~ if $HTML{FILE}
+    %>
     </td>
    </tr>
  </table>
@@ -546,7 +562,8 @@ sub AUTOLOAD {
    my $self = shift;
    my $name = $AUTOLOAD;
       $name =~ s/.*://;
-   die ref($self) . " has no method called '$name'!";
+   my $class = ref($self) || __PACKAGE__;
+   die $class . " has no method called '$name'!";
 }
 
 sub DESTROY {}
@@ -807,6 +824,17 @@ parameter to a true value, C<export> will die with an error.
 
 If you set this parameter to a true value, the named file will be 
 overwritten if already exists. Use carefully.
+
+Has no effect if you use C<-toscalar> option.
+
+=item C<-toscalar>
+
+With the default configuration, C<export> method will dump the 
+exported data to a disk file, but you can alter this behaviour 
+if you pass this parameter with a reference to a scalar.
+
+   $parser->export(-toscalar => \$dumpvar);
+   # then do something with $dumpvar
 
 =back
 

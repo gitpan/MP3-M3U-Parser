@@ -2,6 +2,24 @@ Revision history for Perl extension MP3::M3U::Parser.
 
 Time zone is GMT+2.
 
+2.1 Tue Sep 14 20:47:09 2004
+	=> export() now has the ability to dump the generated data
+	   to a scalar instead of exporting to a file. Useful for
+	   web programming and dynamic generation. To enable this,
+	   -toscalar option must be passed with a scalar ref.
+	=> Module now require()s IO::File, File::Spec and Cwd if needed.
+	   Because, we won't need this modules, if the user works with
+	   scalars instead of disk files. This will save some memory 
+	   and incerase speed I believe. If you are parsing scalar
+	   data and do not use export(), then no external modules 
+	   will be loaded.
+	=> Updated HTML and XML templates for -toscalar compatibility.
+	=> Updated Makefile.PL
+	=> Updated pod.
+	=> Added new tests to demonstrate -toscalar option.
+	=> Added a CGI example code to distro.
+	=> Some minor fixes.
+
 2.01 Mon Jul 26 19:54:14 2004
 	=> Minor fix in Pod.
 	=> SONG element was including ".mp3" if it is 

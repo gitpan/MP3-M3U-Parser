@@ -10,6 +10,6 @@ WriteMakefile(
                        'Text::Template' => 0},
     ($] >= 5.005 ? (
     'AUTHOR'       => 'Burak Gursoy <burak@cpan.org>',
-    'ABSTRACT'     => 'Perl extension for parsing mp3 lists',
+    'ABSTRACT'     => 'MP3 playlist parser',
      ) : ()),
 );

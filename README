@@ -4,7 +4,9 @@ MP3::M3U::Parser
 Parses M3U mp3 playlists and if wanted, exports the parsed data to 
 formats like xml and html.
 
-Read the module's POD for documentation and examples.
+Read the module's POD for documentation.
+
+See the "t" and "eg" directories for examples.
 
 INSTALLATION
 

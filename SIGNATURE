@@ -1,0 +1,37 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.41.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It would check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 6fd9e85efd0f2dc269a35955997d2e15200737f5 Changes
+SHA1 f4d261aac39756848bc9361f39e2631267bdd506 MANIFEST
+SHA1 f791cba98c13aeb68d97cb484e4f5d200f292cd9 META.yml
+SHA1 483c18595a840d59690a1ef11980810e02417f74 Makefile.PL
+SHA1 1d1d122c15c4138b50cd633f46352e6cc8e84d95 README
+SHA1 1cf11ade1a35fcc714c288b0f72a732a5e3015cc eg/m3u.cgi
+SHA1 2887bf7b304380b7acffcdb546c731bb163d8a37 lib/MP3/M3U/Parser.pm
+SHA1 424a5f49fb30c204d5cb0cc158f6952a1447ee72 t/01_basic.t
+SHA1 cd2f8adfcc64d7d40d0456ce4bd627c835e75ffd t/02_basic_xml.t
+SHA1 1508fd6fd790ad1a62ea1f4014d25792c6de1d81 t/03_sub_html.t
+SHA1 0e4603dc63b16c8d3a695443cffe80886071693b t/04_sub_search.t
+SHA1 6c94912ce0b441e7cf238a7e473c18bba580c551 t/05_scalar_xml.t
+SHA1 036c6cabf2a5d97e219aaaa37a00c007f1edc771 t/06_scalar_html.t
+SHA1 279eec61d97cd39a35d048a1b9ccbe2a3a83e32e test.m3u
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (MingW32)
+
+iD8DBQFBRzAIWQFP8hSD6kQRAiW/AKCDVpmKW6loADxUrqFkqFjbaAd0QACeJEuk
+s5/lscbrC0Aqd4sxLfi2uA8=
+=iA06
+-----END PGP SIGNATURE-----
