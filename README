@@ -28,9 +28,10 @@ This module requires these other modules:
 
 	File::Spec
 	IO::File
-	Data::Dumper
+	Cwd
+	Text::Template
 
-All are available on CPAN and standard in Perl 5.8.
+All are available on CPAN
 
 COPYRIGHT AND LICENCE
 

@@ -1,307 +1,254 @@
 package MP3::M3U::Parser;
 use strict;
+use vars qw[$VERSION $AUTOLOAD];
+
+# Data table key map
+use constant PATH    => 0;
+use constant ID3     => 1;
+use constant LEN     => 2;
+use constant ARTIST  => 3;
+use constant SONG    => 4;
+
+use constant MAXDATA => 4; # Maximum index number of the data table
+
 use File::Spec ();
 use IO::File   ();
-use vars qw/$AUTOLOAD $VERSION/;
+use Cwd;
 
-$VERSION = '1.1';
+$VERSION = '2.0';
 
 sub new {
+   # -parse_path -seconds -search -overwrite
    my $class = shift;
-   my $self  = {};
-   bless $self, $class;
-
-      $self->error("Parameters passed to new() must be in 'param => value' format!") if(scalar(@_) % 2);
-   my %options = @_; # Parameters;
-      $self->validate('new',[qw/-type -path -file -seconds -search -parse_path -ignore_chars/],[keys %options]);
-
-   INIT:
-      $self->{type}          = $options{'-type'}       || 'file'; # file | dir
-      $self->{path}          = $options{'-path'}       || '';     # Should never be empty.
-      $self->{file}          = $options{'-file'}       || '';     # if type is file, this must be a real file.
-      $self->{seconds}       = $options{'-seconds'}    || '';     # format or get seconds.
-      $self->{search_string} = $options{'-search'}     || '';     # search_string
-      $self->{parse_path}    = $options{'-parse_path'} || '';     # mixed list?
-      $self->{full_path}     = undef; # If type is 'file', set this to path+file
-      $self->{M3U}           = {};    # for parse()
-      $self->{DRIVE}         = {};    # Drive names for all parsed lists
-      $self->{TOTAL_FILES}   = 0;     # Counter
-      $self->{TOTAL_TIME}    = 0;     # In seconds
-      $self->{TOTAL_SONGS}   = 0;     # Counter
-      $self->{AVERAGE_TIME}  = 0;     # Counter
-      $self->{ACOUNTER}      = 0;     # Counter
-      $self->{EXPORT_FORMAT} = '';    # Export to what?
-      $self->{ERROR}         = '';    # Contains error messages.
-
-      # I put such a functionaly because some turkish characters 
-      # are not escaped properly
-      $self->{IGNORE_CHARS}  = $options{'-ignore_chars'} || undef;
-      $self->{ESCAPE_CHARS}  = undef;
-
-      if($self->{IGNORE_CHARS} and ref($self->{IGNORE_CHARS}) ne 'ARRAY' ){
-         $self->error("Unknown ignore_chars parameter! It must be an arrayref.") ;
-      } else {
-         $self->{IGNORE_CHARS} = $self->{IGNORE_CHARS} ? {map { $_ => 1 } @{ $self->{IGNORE_CHARS} } } : {};
-         my @octal;
-	 for (200..377) {
-            push(@octal, \$_) unless( exists $self->{IGNORE_CHARS}{$_} );
-	 }
-	 $self->{ESCAPE_CHARS} = [join('',@octal)];
-      }
-
-   CHECK_PARAMS:
-      $self->{path} = File::Spec->canonpath($self->{path});
-      ($self->{path} and -d $self->{path}) or $self->error("I can't find the directory '$self->{path}': $!");
-      if ($self->{type} eq 'file') {
-          $self->{full_path} = File::Spec->catfile($self->{'path'},$self->{'file'});
-          unless(-e $self->{full_path}) {
-             $self->error("I can not find the mp3 list '$self->{full_path}': $!");
-          }
-      }
-      if ($self->{search_string} and length($self->{search_string}) < 3) {
-         $self->error("A search string must be at least three characters long!");
-      }
+   my %o     = scalar(@_) % 2 ? () : (@_); # options
+   my $self  = {
+                _M3U_         => [], # for parse()
+                TOTAL_FILES   =>  0, # Counter
+                TOTAL_TIME    =>  0, # In seconds
+                TOTAL_SONGS   =>  0, # Counter
+                AVERAGE_TIME  =>  0, # Counter
+                ACOUNTER      =>  0, # Counter
+                ANON          =>  0, # Counter for SCALAR & GLOB M3U
+                INDEX         =>  0, # index counter for _M3U_
+                EXPORTF       =>  0, # Export file name counter for anonymous exports
+                seconds       => $o{'-seconds'}    || '', # format or get seconds.
+                search_string => $o{'-search'}     || '', # search_string
+                parse_path    => $o{'-parse_path'} || '', # mixed list?
+                overwrite     => $o{'-overwrite'}  ||  0, # overwrite export file if exists?
+                encoding      => $o{'-encoding'}   || '', # leave it to export() if no param
+                expformat     => $o{'-expformat'}  || '', # leave it to export() if no param
+                expdrives     => $o{'-expdrives'}  || '', # leave it to export() if no param
+   };
+   if ($self->{search_string} and length($self->{search_string}) < 3) {
+      die "A search string must be at least three characters long!";
+   }
+   bless  $self, $class;
    return $self;
 }
 
 sub parse {
-   # The parsed data structure is like this:
-   # 
-   # $parsed = {
-   #              CDNAME => [
-   #                          [
-   #                            'ID3 NAME', # can be empty if no EXTINF line
-   #                            'SECONDS',  # can be empty if no EXTINF line.
-   #                            'FULLPATH', # always has a value.
-   #                           ],
-   #                         # Array continues ...
-   #                         ],
-   #            # and so on ...
-   #            };
-   #
-   # CDNAME is the name of the m3u list.
-   #
-   # If a search is done and a list has no matches, then you'll get an 
-   # empty list like:
-   #
-   # CDNAME => [['','','']]
-
-   my $self    = shift;
-   my $forward = shift;
-   # Get the dir contents if we are parsing a directory.
-   if($self->{type} eq 'dir') {
-      my @dir = $self->read_dir;
-      my $file;
-      foreach $file (@dir) {
-         $self->parse_file($file);
+   my $self  = shift;
+   my @files = @_;
+   my $file;
+   foreach $file (@files) {
+      unless(ref $file) {
+         $file = File::Spec->canonpath($file);
+         -e $file or die "'$file' does not exists!";
       }
-   } else {
-   # Just parse one file
-      $self->parse_file;
+      $self->parse_file($file);
    }
 
    # Average time of all the parsed songs:
    $self->{AVERAGE_TIME} = ($self->{ACOUNTER} and $self->{TOTAL_TIME}) 
-                           ? $self->seconds(int($self->{TOTAL_TIME}/$self->{ACOUNTER}))
+                           ? $self->seconds($self->{TOTAL_TIME}/$self->{ACOUNTER})
                            : 0;
-
-   $self->error("I couldn't find any songs in the list(s)!") if $self->{TOTAL_SONGS} == 0;
-
-   # If you call this sub like this: 
-   # __PACKAGE__->new(ARGV)->parse(1)->export(ARGV)
-   # Just returns the object itself.
-   # Else: it returns the parsed results (hash or hashref).
-   return $forward ? $self : (wantarray ? %{$self->{M3U}} : $self->{M3U});
+   return $self if defined wantarray;
 }
 
 sub parse_file {
-   # Private function.
-   # Do NOT call this sub from your program!
-
-   # Parse an M3U file. This is the real parse() sub :)
+   # supports disk files, scalar variables and filehandles (typeglobs)
    my $self = shift;
-   # If we dont parse a dir, just get the full path to the file, 
-   # else; use @_.
-   my $file = ($self->{type} eq 'file') ? $self->{full_path} : shift(@_);
-   my $fh   = IO::File->new;
+   my $file = shift;
+   my $ref  = ref($file) || '';
+   if($ref and $ref !~ m[^(?:GLOB|SCALAR)$]) {
+      die "Unknown parameter of type '$ref' passed to parse()!";
+   }
    my $cd;
+   unless ($ref) {
       $cd = (split /[\\\/]/, $file)[-1];
       $cd =~ s,\.m3u,,i;
-      $self->{M3U}{$cd}     = [];       # Main key
-      $self->{DRIVE}{$cd}   = 'CDROM:'; # Default drive name
-      $self->{TOTAL_FILES} += 1;        # Total lists counter
-   my $index = 0; # Index number of the list array
+   }
+   my $i = $self->{INDEX};
+   my $this_file;
+   if ($ref) {
+      $this_file = 'ANON'.$self->{ANON}++;
+   } else {
+      $this_file = $self->locate_file($file);
+   }
+   $self->{'_M3U_'}[$i] = {file  => $this_file,
+                           list  => $ref ? $this_file : ($cd || ''),
+                           drive => 'CDROM:',
+                           data  => [],
+                           total => 0,
+                           };
+   $self->{TOTAL_FILES} += 1; # Total lists counter
+   my $index             = 0; # Index number of the list array
    # These three variables are used when there is a '-search' parameter.
    # long: total_time, total_songs, total_average_time
    my($ttime,$tsong,$taver) = (0,0,0);
    # while loop variables. j: junk data.
    my($m3u,$j,@song,$j2,$sec,$temp_sec);
 
+   my($fh, @fh);
+   if($ref eq 'GLOB') {
+      $fh = $file;
+   } elsif ($ref eq 'SCALAR') {
+      @fh = split /\n/, $$file;
+   } else {
       # Open the file to parse:
-      $fh->open("< $file") or $self->error("I could't open '$file': $!");
+      $fh = IO::File->new;
+      $fh->open("< $file") or die "I could't open '$file': $!" unless $ref;
+   }
+
+PREPROCESS:
+   while ($m3u = ($ref eq 'SCALAR') ? (shift @fh) : <$fh>) {
+      # First line is just a comment. But we need it to validate
+      # the file as a m3u playlist file.
+      chomp $m3u;
+      if($m3u !~ m[^#EXTM3U]) {
+         die $ref ? "The '$ref' parameter you have passed does not contain valid m3u data!"
+                  : "'$file' is not a valid m3u file!";
+      }
+      last PREPROCESS;
+   }
+
+   my $dkey   =  $self->{'_M3U_'}[$i]{data};  # data key
+   my $device = \$self->{'_M3U_'}[$i]{drive}; # device letter
 
 RECORD: 
-
-   while($m3u = <$fh>) {
-      $#{$self->{M3U}{$cd}[$index]} = 2; # For the absence of EXTINF line.
+   while ($m3u = ($ref eq 'SCALAR') ? (shift @fh) : <$fh>) {
       chomp $m3u;
-      next if $m3u =~ m,^#EXTM3U,i;      # First line is just a comment.
+      next unless $m3u; # Record may be blank if it is not a disk file.
+      $#{$dkey->[$index]} = MAXDATA; # For the absence of EXTINF line.
       # If the extra information exists, parse it:
       if($m3u =~ m!#EXTINF!i) {
-         ($j ,@song) = split(/\,/,$m3u); # ($artist,$song) = split / - /, @song; ???
+         ($j ,@song) = split(/\,/,$m3u);
          ($j ,$sec)  = split(/:/,$j);
          $ttime     += $sec;
          $temp_sec   = $sec;
-         $self->{M3U}{$cd}[$index]->[0] = join(",", @song);
-         if ($sec) {
-            $sec = $self->seconds($sec);
-         } else {
-            $sec = $self->seconds(0);
-         }
-         $self->{M3U}{$cd}[$index]->[1] = $sec;
+         $dkey->[$index][ID3] = join(",", @song);
+         $dkey->[$index][LEN] = $self->seconds($sec || 0);
          $taver++;
-         next RECORD;
+         next RECORD; # jump to path info
       }
-      # Get the drive and path info.   Possible cases are:
-      if($m3u =~ m,^\w:\\(.+?)$,i or # C:\mp3\Singer - Song.mp3
-         $m3u =~ m,^\\(.+?)$,i    or # \mp3\Singer - Song.mp3
-         $m3u =~ /^(.+?)$/           # Singer - Song.mp3
+
+      # Get the drive and path info.      Possible cases are:
+      if($m3u =~ m{^\w:[\\/](.+?)$}x or # C:\mp3\Singer - Song.mp3
+         $m3u =~ m{^   [\\/](.+?)$}x or # \mp3\Singer - Song.mp3
+         $m3u =~ m{^        (.+?)$}x    # Singer - Song.mp3
          ) {
-         $self->{M3U}{$cd}[$index]->[2] = ($self->{parse_path} eq 'asis') ? $m3u : $1;
-         unless ($self->{DRIVE}{$cd} && $self->{DRIVE}{$cd} ne 'CDROM:') {
-            if($m3u =~ m,^(\w:),){
-               $self->{DRIVE}{$cd} = $1;
-            }
-         }
+         $dkey->[$index][PATH] = $self->{parse_path} eq 'asis' ? $m3u : $1;
+         $$device = $1 if $$device eq 'CDROM:' and $m3u =~ m[^(\w:)];
          $tsong++;
-         # If we are searching something:
-         if($self->{search_string}) {
-            if($self->search($self->{M3U}{$cd}[$index][0],$self->{M3U}{$cd}[$index][2])) {
-               # If we got a match, increase the index
-               $index++;
-            } else {
-               # If we didnt matched anything, resize these counters ...
-               $tsong--;
-               $ttime -= $temp_sec;
-               $taver--;
-               # ... and delete the empty index:
-               delete $self->{M3U}{$cd}[$index];
-            }
-         } else {
-            # If we are not searching, just increase the index:
-            $index++;
+      }
+
+      # Try to extract artist and song info 
+      # and remove leading and trailing spaces
+      # Some artist names can also have a "-" in it. 
+      # For this reason; require that the data has " - " in it. 
+      # ... but the spaces can be one or more.
+      # So, things like "artist-song" does not work...
+      my($artist, @xsong) = split /\s{1,}-\s{1,}/, $dkey->[$index][ID3] || $dkey->[$index][PATH];
+      if ($artist) {
+         $artist =~ s[^\s+][];
+         $artist =~ s[\s+$][];
+         $dkey->[$index][ARTIST] = $artist;
+      }
+      if (@xsong) {
+         my $song = join '-', @xsong;
+         $song =~ s[^\s+][];
+         $song =~ s[\s+$][];
+         $dkey->[$index][SONG] = $song;
+      }
+
+      # convert undefs to empty strings
+      foreach my $CHECK (0..MAXDATA) {
+         $dkey->[$index][$CHECK] = '' unless defined $dkey->[$index][$CHECK];
+      }
+
+      # If we are searching something:
+      if($self->{search_string}) {
+         if($self->search($dkey->[$index][PATH], $dkey->[$index][ID3])) {
+            $index++; # If we got a match, increase the index
+         } else { # If we didnt matched anything, resize these counters ...
+            $tsong--;
+            $taver--;
+            $ttime -= $temp_sec;
+            delete $dkey->[$index]; # ... and delete the empty index
          }
-         next RECORD;
+      } else {
+         $index++; # If we are not searching, just increase the index
       }
    }
    # Close the file
-   $fh->close;
+   $fh->close unless $ref;
+
+   # Calculate the total songs in the list:
+   $self->{'_M3U_'}[$i]{total} = $#{$self->{'_M3U_'}[$i]{data}} + 1;
 
    # Adjust the global counters:
-   $self->{TOTAL_FILES}-- if($self->{search_string} and $#{ $self->{M3U}{$cd} } < 0);
+   $self->{TOTAL_FILES}-- if($self->{search_string} and $#{ $self->{'_M3U_'}[$i]{data} } < 0);
    $self->{TOTAL_TIME}  += $ttime;
    $self->{TOTAL_SONGS} += $tsong;
    $self->{ACOUNTER}    += $taver;
+   $self->{INDEX}++;
    # Return the parse object.
    return $self;
 }
 
-sub search {
-   # Private function.
-   # Do NOT call this sub from your program!
-
-   my $self  = shift;
-   my $str   = shift;
-   my $str2  = shift;
-   return(0) unless( $str or $str2);
-   my $search = quotemeta($self->{search_string});
-   # Try a basic case-insensitive match:
-   return(1) if($str =~ /$search/i or $str2 =~ /$search/i);
-   return;
-}
-
-sub export {
-# Export the parsed object to a format like xml or html.
-# $self->{M3U}{$cd}[$index] = ["ID3","TIME","PATH"];
-   my $self     = shift;
-      $self->error("Parameters passed to export() must be in 'param => value' format!") if(scalar(@_) % 2);
-   my %opt      = @_;
-      $self->validate('export',[qw/-file -format -encoding -drives/],[keys %opt]);
-
-   my $file     = $opt{'-file'}     || $self->error("You must specify a file to export!");
-   my $format   = $opt{'-format'}   || $self->error("You must specify a format ('xml', 'html' or 'html_split') to export!");
-   my $encoding = $opt{'-encoding'} || 'ISO-8859-1';
-   my $drives   = $opt{'-drives'}   || 'on';
-   $self->error("Unknown export format '$format'!") if ($format !~ /xml|html|html_split/);
-      # Set this global for escape()
-      $self->{EXPORT_FORMAT} = $format;
-      $file = File::Spec->canonpath($file);
-   my $fh   = IO::File->new;
-      $fh->open("> $file") or $self->error("I can't open export file '$file' to write: $!"); 
-   my($cd,$m3u);
-   if ($format eq 'xml') {
-      $self->{TOTAL_TIME} = $self->seconds($self->{TOTAL_TIME}) if($self->{TOTAL_TIME} > 0);
-      print $fh qq~<?xml version="1.0" encoding="$encoding" ?>\n~;
-      print $fh qq~<m3u lists="$self->{TOTAL_FILES}" songs="$self->{TOTAL_SONGS}" time="$self->{TOTAL_TIME}" average="$self->{AVERAGE_TIME}">\n~;
-      my $sc = 0;
-         foreach $cd (sort keys %{ $self->{M3U} }) {
-            $sc = $#{$self->{M3U}{$cd}}+1;
-            next unless $sc;
-            print $fh qq~<cd name="$cd" drive="$self->{DRIVE}{$cd}" songs="$sc">\n~;
-            foreach $m3u (@{ $self->{M3U}{$cd} }) { 
-               print $fh sprintf qq~<song id3="%s" time="%s">%s</song>\n~,$self->escape($m3u->[0]) || '',$m3u->[1] || '',$self->escape($m3u->[2]);
-            }
-            print $fh "</cd>\n";
-            $sc = 0;
-         }
-         print $fh "</m3u>\n";
-   } else {
-      if ($format eq 'html_split') {
-         $self->error("'html_split' format has not been implemented yet.");
-      } else {
-         # I don't think that weird numbers in the html mean anything 
-         # to anyone. So, if you didn't want to format seconds in your 
-         # code, I'm overriding it here (only for export(); Outside 
-         # export(), you'll get the old value):
-         local $self->{seconds} = 'format';
-         print $fh $self->html('start',total => $self->{TOTAL_FILES},
-                                       ttime => $self->{TOTAL_TIME},
-                                       songs => $self->{TOTAL_SONGS},
-                                       file  => $file,
-                                       encod => $encoding);
-         my $song;
-         my $cdrom;
-         foreach $cd (sort keys %{ $self->{M3U} }) {
-            next if($#{$self->{M3U}{$cd}} < 0);
-            $cdrom .= "$self->{DRIVE}{$cd}\\" unless($drives eq 'off');
-            $cdrom .= $cd;
-            print $fh qq~<tr><td colspan="2"><b>$cdrom</b></td></tr>\n~;
-            foreach $m3u (@{ $self->{M3U}{$cd} }) {
-               $song = $m3u->[0];
-               unless($song) {
-                  $song = (split /\\/, $m3u->[2])[-1] || $m3u->[2];
-                  $song = (split /\./, $song    )[0]  || $song;
-               }
-               # Hmm... $song must never be empty, but I put this code here.
-               $song     = $song     ? $self->escape($song)      : '&nbsp;';
-               $m3u->[1] = $m3u->[1] ? $self->seconds($m3u->[1]) : '&nbsp;';
-               print $fh qq~<tr><td><span class="t">$m3u->[1]</span></td><td>$song</td></tr>\n~;
-            }
-            $cdrom = '';
-         }
-         print $fh $self->html('end');
-      }
-   }
-   $fh->close;
+sub reset {
+   # reset the object
+   my $self = shift;
+      $self->{'_M3U_'}      = [];
+      $self->{TOTAL_FILES}  = 0;
+      $self->{TOTAL_TIME}   = 0;
+      $self->{TOTAL_SONGS}  = 0;
+      $self->{AVERAGE_TIME} = 0;
+      $self->{ACOUNTER}     = 0;
+      $self->{INDEX}        = 0;
    return $self if defined wantarray;
 }
 
-sub escape {
-   # Private function.
-   # Do NOT call this sub from your program!
-
+sub result {
    my $self = shift;
-   my $text = shift || return;
+   return(wantarray ? @{$self->{'_M3U_'}} : $self->{'_M3U_'});
+}
+
+sub locate_file {
+   my $self = shift;
+   my $file = shift;
+   if ($file !~ m{[\\/]}) {
+      # if $file does not have a slash in it then it is in the cwd.
+      # don't know if this code is valid in some other filesystems.
+      $file = File::Spec->canonpath(getcwd()."/".$file);
+   }
+   return $file;
+}
+
+sub search {
+   my $self = shift;
+   my $path = shift;
+   my $id3  = shift;
+   return(0) unless( $id3 or $path);
+   my $search = quotemeta($self->{search_string});
+   # Try a basic case-insensitive match:
+   return(1) if($id3 =~ /$search/i or $path =~ /$search/i);
+   return(0);
+}
+
+sub escape {
+   my $self = shift;
+   my $text = shift || return '';
    #$bad .= chr $_ for (1..8,11,12,14..31,127..144,147..159);$text =~ s/[$bad]//gs;
    my %escape = (
               '&' => '&amp;',
@@ -309,57 +256,32 @@ sub escape {
               '<' => '&lt;',
               '>' => '&gt;',
    );
-
    $text =~ s,\Q$_,$escape{$_},gs foreach keys %escape;
-   if($self->{EXPORT_FORMAT} eq 'xml') {
-      my $escapes = $self->{ESCAPE_CHARS};
-      $text =~ s/($escapes)/'&#'.ord($1).';'/ges;
-   }
-
-
    return $text;
 }
 
 sub info {
-   # Instead of direct accessing to object tables, use 
-   # This method.
+   # Instead of direct accessing to object tables, use this method.
    my $self = shift;
+   my @drive;
+   for (my $i = 0; $i <= $#{ $self->{'_M3U_'} }; $i++) {
+      push @drive, $self->{'_M3U_'}[$i]{drive};
+   }
    return(
           songs   => $self->{TOTAL_SONGS},
           files   => $self->{TOTAL_FILES},
           ttime   => $self->{TOTAL_TIME}    ? $self->seconds($self->{TOTAL_TIME}) 
-                                            : 'unknown',
-          average => $self->{AVERAGE_TIME} || 'unknown',
-          drive   => $self->{DRIVE},
+                                            : 0,
+          average => $self->{AVERAGE_TIME} || 0,
+          drive   => [@drive],
    );
-}
-
-sub read_dir {
-   # Private function.
-   # Do NOT call this sub from your program!
-
-   # Read a directory containing m3u files. 
-   my $self = shift;
-   my $path = $self->{path};
-   my @list;
-   opendir (DIRECTORY, $path) or $self->error("I can not open directory '$path' for reading: $!");
-   my @dir = readdir(DIRECTORY);
-   closedir(DIRECTORY);
-
-   foreach (@dir) {
-      next if     /^(?:\.|\.\.)$/;
-      next unless /\.m3u$/i;
-      push @list, File::Spec->catfile($path,$_);
-   }
-
-   return(sort @list);
 }
 
 sub seconds {
    # Format seconds if wanted.
    my $self = shift;
    my $all  = shift;
-   return($all) unless( $self->{seconds} eq 'format' and $all !~ /:/);
+   return $all    unless( $self->{seconds} eq 'format' and $all !~ /:/);
    return '00:00' unless $all;
       $all  = $all/60;
    my $min  = int($all);
@@ -374,116 +296,130 @@ sub seconds {
    return $hr ? "$hr:$min:$sec" : "$min:$sec";
 }
 
-sub Dump {
-# Dump the structure of a variable. $self->{M3U} for example...
-# You must specify a file to write the Dump into it.
-   require Data::Dumper;
-   my  $self  = shift;
-   my  $file  = shift;
-   my  $thing = shift;
-   ref($thing) eq 'ARRAY' or $self->error("Structure passed to Dump() must be an arrayref!");
-   my $fh     = IO::File->new;
-      $fh->open("> $file") or $self->error("I could't open dump '$file' for writing: $!");
-   my $dump   = Data::Dumper->Dump($thing);
-   print $fh $dump;
-   $fh->close;
-}
-
-sub song_name {
-# You can do this yourself, but this is a shortcut.
-# If ID3 Name is empty, returns the file name, 
-# without path info and .mp3 extension.
-
-# NOT documented, so this can be deleted in the future.
-
-   my $self = shift;
-   my $song = shift;
-   if($song->[0]) {
-      return $song->[0];
-   } else {
-      if ($song->[2]) {
-         my $j = (split /\\/, $song->[2])[-1] || $song->[2];
-            $j = (split /\.mp3$/i, $j   )[ 0] || $j;
-         return $j;
-      } else {
-         return '';
-      }
+sub export {
+   my $self      = shift;
+   my %opt       = scalar(@_) % 2 ? () : (@_);
+   my $format    = $opt{'-format'}    || $self->{'expformat'} || 'html';
+   my $file      = File::Spec->canonpath($opt{'-file'}        || sprintf 'mp3_m3u%s.%s', $self->{EXPORTF}, $format);
+   my $encoding  = $opt{'-encoding'}  || $self->{'encoding'}  || 'ISO-8859-1';
+   my $drives    = $opt{'-drives'}    || $self->{'expdrives'} || 'on';
+   my $overwrite = $opt{'-overwrite'} || $self->{'overwrite'} ||  0; # global overwrite || local overwrite || don't overwrite
+   die "Unknown export format '$format'!" if $format !~ m[^(?:x|ht)ml$];
+   if (-e $file and not $overwrite) {
+      die "The export file '$file' exists on disk and you didn't select to overwrite it!";
    }
-}
-
-sub validate {
-   # Private function.
-   # Do NOT call this sub from your program!
-
-   my $self   = shift;
-   my $sub    = shift;
-   my %known  = map {$_ => 1} @{+shift};
-   my %passed = map {$_ => 1} @{+shift};
-   foreach (keys %passed) {
-      $self->error("Unknown parameter '$_' passed to $sub()!") unless(exists $known{$_});
-   }
-}
-
-sub error {
-   # Private function.
-   # Do NOT call this sub from your program!
-
-   my  $self = shift;
-   my  $mes  = "@_";
-       $self->{ERROR} = $mes if ref $self;
-   die $mes;
-}
-
-sub html {
-   # You can re-define this sub from your package if you want.
-   my $self = shift;
-   my $type = shift;
-   my(%opt,$time,$file);
-       %opt    = @_ if(@_);
-   if (%opt) {
-      $time    = $opt{ttime} ? $self->seconds($opt{ttime}) : undef;
-      if ($time) {
-         my  @time = split /:/,$time;
-         if ($#time > 1) {
-            $time = qq~
-            <span class="ts"  > $time[0] </span>
-            <span class="info"> hours    </span>
-            <span class="ts"  > $time[1] </span>
-            <span class="info"> minutes  </span>
-            <span class="ts"  > $time[2] </span>
-            <span class="info"> seconds. </span>~;
-         } else {
-            $time = qq~
-            <span class="ts"  > $time[0] </span>
-            <span class="info"> minutes  </span>
-            <span class="ts"  > $time[1] </span>
-            <span class="info"> seconds. </span>~;
+   my $fh = IO::File->new;
+      $fh->open("> $file") or die "I can't open export file '$file' for writing: $!"; 
+   my($cd,$m3u);
+   if ($format eq 'xml') {
+      $self->{TOTAL_TIME} = $self->seconds($self->{TOTAL_TIME}) if $self->{TOTAL_TIME} > 0;
+      printf $fh qq~<?xml version="1.0" encoding="%s" ?>\n~, $encoding;
+      printf $fh qq~<m3u lists="%s" songs="%s" time="%s" average="%s">\n~, $self->{TOTAL_FILES}, $self->{TOTAL_SONGS}, $self->{TOTAL_TIME}, $self->{AVERAGE_TIME};
+      my $sc = 0;
+      foreach $cd (@{ $self->{'_M3U_'} }) {
+         $sc = $#{$cd->{data}}+1;
+         next unless $sc;
+         printf $fh qq~<list name="%s" drive="%s" songs="%s">\n~, $cd->{list}, $cd->{drive}, $sc;
+         foreach $m3u (@{ $cd->{data} }) { 
+            printf $fh qq~<song id3="%s" time="%s">%s</song>\n~, $self->escape($m3u->[ID3]) || '',$m3u->[LEN] || '',$self->escape($m3u->[PATH]);
          }
-      } else {
-         $time = qq~<span class="ts"><i>Unknown</i></span><span class="info">.</span>~;
+         print $fh "</list>\n";
+         $sc = 0;
       }
-   }
-
-   my $avertime;
-   if($self->{AVERAGE_TIME}) {
-      $avertime = $self->seconds($self->{AVERAGE_TIME});
+      print $fh "</m3u>\n";
    } else {
-      $avertime = '<i>Unknown</i>';
+      require Text::Template;
+      # I don't think that weird numbers in the html mean anything 
+      # to anyone. So, if you didn't want to format seconds in your 
+      # code, I'm overriding it here (only for export(); Outside 
+      # export(), you'll get the old value):
+      local $self->{seconds} = 'format';
+      my %t;
+      ($t{up},$t{cd},$t{data},$t{down}) = split /<!-- MP3DATASPLIT -->/, $self->template;
+      foreach (keys %t) {
+         $t{$_} =~ s,^\s+,,gs;
+         $t{$_} =~ s,\s+$,,gs;
+      }
+      my $tmptime = $self->{TOTAL_TIME} ? $self->seconds($self->{TOTAL_TIME}) : undef;
+      my @tmptime;
+      if ($tmptime) {
+         @tmptime = split /:/,$tmptime;
+         unshift @tmptime, 'Z' unless $#tmptime > 1;
+      }
+      my $HTML = {
+              ENCODING    => $encoding,
+              SONGS       => $self->{TOTAL_SONGS},
+              TOTAL       => $self->{TOTAL_FILES},
+              AVERTIME    => $self->{AVERAGE_TIME} ? $self->seconds($self->{AVERAGE_TIME}) : '<i>Unknown</i>',
+              FILE        => $self->locate_file($file),
+              TOTAL_FILES => $self->{TOTAL_FILES},
+              TOTAL_TIME  => @tmptime ? [@tmptime] : '',
+      };
+
+      print $fh $self->tcompile(template => $t{up}, params=> {HTML => $HTML});
+      my($song,$cdrom, $dlen);
+      foreach $cd (@{ $self->{'_M3U_'} }) {
+         next if($#{$cd->{data}} < 0);
+         $cdrom .= "$cd->{drive}\\" unless($drives eq 'off');
+         $cdrom .= $cd->{list};
+         printf $fh $t{cd}."\n", $cdrom;
+         foreach $m3u (@{ $cd->{data} }) {
+            $song = $m3u->[ID3];
+            unless($song) {
+               $song = (split /\\/, $m3u->[PATH])[-1] || $m3u->[PATH];
+               $song = (split /\./, $song       )[ 0] || $song;
+            }
+            $dlen = $m3u->[LEN] ? $self->seconds($m3u->[LEN]) : '&nbsp;';
+            $song = $song       ? $self->escape($song)        : '&nbsp;';
+            printf $fh "%s\n", $self->tcompile(template => $t{data}, params=> {data => {len => $dlen, song => $song}});
+         }
+         $cdrom = '';
+      }
+      print $fh $t{down};
+   }
+   $fh->close;
+   $self->{EXPORTF}++;
+   return $self if defined wantarray;
+}
+
+# compile template
+sub tcompile {
+   my $self     = shift;
+   my $class    = ref $self;
+   die "Invalid number of parameters!" if scalar @_ % 2;
+   my %opt      = @_;
+   my $template = Text::Template->new(TYPE       => 'STRING', 
+                                      SOURCE     => $opt{template},
+                                      DELIMITERS => ['<%', '%>'],
+                                      ) or die "Couldn't construct the HTML template: $Text::Template::ERROR";
+   my(@globals, $prefix, $ref);
+   foreach (keys %{ $opt{params} }) {
+      if ($ref = ref $opt{params}->{$_}) {
+            if ($ref eq 'HASH')  {$prefix = '%'}
+         elsif ($ref eq 'ARRAY') {$prefix = '@'}
+         else                    {$prefix = '$'}
+      }
+      else {$prefix = '$'}
+      push @globals, $prefix . $_;
    }
 
-   if ($type eq 'start') {
-   my $pls = ($self->{TOTAL_FILES} > 1) ? "Playlists and Files" : "Playlist files";
-# Based on WinAmp' s HTML List:
-return <<HTML_START;
+   my $text = $template->fill_in(PACKAGE => $class . '::Dummy',
+                                 PREPEND => sprintf('use strict;use vars qw[%s];', join(" ", @globals)),
+                                 HASH    => $opt{params},
+              ) or die "Couldn't fill in template: $Text::Template::ERROR";
+   return $text;
+}
+
+# HTML template code
+sub template {
+   return <<'MP3M3UParserTemplate';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
    "http://www.w3.org/TR/html4/loose.dtd">
 <html>
  <head>
-
    <title>MP3::M3U::Parser Generated PlayList</title>
-
    <meta name="Generator" content="MP3::M3U::Parser">
-   <meta http-equiv="content-type" content="text/html; charset=$opt{'encod'}">
+   <meta http-equiv="content-type" content="text/html; charset=<%$HTML{ENCODING}%>">
 
    <style type="text/css">
    <!--
@@ -552,15 +488,29 @@ return <<HTML_START;
 
   <table border="0" cellspacing="0" cellpadding="0" width="98%">
    <tr><td>
-    <span class="ts">$opt{songs}</span> <span class="info"> tracks and 
-    <span class="ts">$opt{total}</span> CDs in playlist, 
+    <span class="ts"><%$HTML{SONGS}%></span> <span class="info"> tracks and 
+    <span class="ts"><%$HTML{TOTAL}%></span> Lists in playlist, 
       average track length: </span> 
-      <span class="ts">$avertime</span><span class="info">.</span>
+      <span class="ts"><%$HTML{AVERTIME}%></span><span class="info">.</span>
      <br>
-    <span class="info">Playlist length: </span> 
-     $time
-     <br>
-    <span class="info">Right-click <a href="file://$opt{file}">here</a>
+    <span class="info">Playlist length: </span><%
+   my $time;
+   if ($HTML{TOTAL_TIME}) {
+      my @time = @{$HTML{TOTAL_TIME}};
+      $time = qq~<span class="ts"  > $time[0] </span>
+                 <span class="info"> hours    </span>~ if $time[0] ne 'Z';
+      $time .= qq~
+            <span class="ts"  > $time[1] </span>
+            <span class="info"> minutes  </span>
+            <span class="ts"  > $time[2] </span>
+            <span class="info"> seconds. </span>~;
+   } else {
+      $time = qq~<span class="ts"><i>Unknown</i></span><span class="info">.</span>~;
+   }
+   $time;
+
+     %><br>
+    <span class="info">Right-click <a href="file://<%$HTML{FILE}%>">here</a>
       to save this HTML file.</span>
     </td>
    </tr>
@@ -568,38 +518,38 @@ return <<HTML_START;
 
 </div>
 <blockquote>
-<p><span class="infob"><big>$pls:</big></span></p>
+<p><span class="infob"><big><% 
+$HTML{TOTAL_FILES} > 1 ? "Playlists and Files" : "Playlist files"; 
+%>:</big></span></p>
 
 <table border="0" cellspacing="1" cellpadding="2">
 
-HTML_START
+<!-- MP3DATASPLIT -->
+<tr><td colspan="2"><b>%s</b></td></tr>
+<!-- MP3DATASPLIT -->
+<tr><td><span class="t"><%$data{len}%></span></td><td><%$data{song}%></td></tr>
+<!-- MP3DATASPLIT -->
 
-   } elsif ($type eq 'end') {
-      return <<HTML_END;
   </table>
 </blockquote>
 <hr align="left" width="90%" noshade size="1">
 <span class="s">This HTML File is based on 
-<a href="http://www.winamp.com">WinAmp</a>'s HTML List.</span>
+<a href="http://www.winamp.com">WinAmp</a>`s HTML List.</span>
 </body>
 </html>
-HTML_END
-
-   }
-   return;
+MP3M3UParserTemplate
 }
 
 sub AUTOLOAD {
    my $self = shift;
    my $name = $AUTOLOAD;
       $name =~ s/.*://;
-   $self->error("There is no method called '$name'!");
+   die ref($self) . " has no method called '$name'!";
 }
 
-sub DESTROY {
-#   my $self = shift;
-#   delete $self->{$_} foreach keys %$self;
-}
+sub DESTROY {}
+
+package MP3::M3U::Parser::Dummy;
 
 1;
 
@@ -607,18 +557,16 @@ __END__;
 
 =head1 NAME
 
-MP3::M3U::Parser - Perl extension for parsing mp3 lists.
+MP3::M3U::Parser - MP3 playlist parser.
 
 =head1 SYNOPSIS
 
    use MP3::M3U::Parser;
-   my $parser = MP3::M3U::Parser->new(-type    => 'dir',
-                                      -path    => '/directory/containing/m3u_files',
-                                      -seconds => 'format');
+   my $parser = MP3::M3U::Parser->new(%options);
 
-   my %results = $parser->parse;
-   my %info    = $parser->info;
-   my @lists   = keys %results;
+   $parser->parse(\*FILEHANDLE, \$scalar, "/path/to/playlist.m3u");
+   my $result = $parser->result;
+   my %info   = $parser->info;
 
    $parser->export(-format   => 'xml',
                    -file     => "/path/mp3.xml",
@@ -628,51 +576,31 @@ MP3::M3U::Parser - Perl extension for parsing mp3 lists.
                    -file     => "/path/mp3.html",
                    -drives   => 'off');
 
+   # convert all m3u files to individual html files.
+   foreach (<*.m3u>) {
+      $parser->parse($_)->export->reset;
+   }
+
+   # convert all m3u files to one big html file.
+   foreach (<*.m3u>) {
+      $parser->parse($_);
+   }
+   $parser->export;
+
 =head1 DESCRIPTION
 
-B<MP3::M3U::Parser> is a parser for M3U mp3 song lists. It also parses 
-the EXTINF lines (which contains id3 song name and time) if possible. 
-You can get a parsed object or specify a format and export the parsed 
-data to it. The format can be B<xml> or B<html>.
+B<MP3::M3U::Parser> is a parser for M3U mp3 playlist files. It also 
+parses the EXTINF lines (which contains id3 song name and time) if 
+possible. You can get a parsed object or specify a format and export 
+the parsed data to it. The format can be B<xml> or B<html>.
 
 =head2 Methods
 
-=over 8
-
-=item B<new()>
+=head3 B<new()>
 
 The object constructor. Takes several arguments like:
 
 =over 4
-
-=item C<-type>
-
-Sets the parse type. It's value can be C<dir> or C<file>. If you select 
-C<file>, only the file specified will be parsed. If you set it to C<dir>, 
-Then, you must set L<path|/-path> to a directory that contains m3u files.
-
-If you don't set this parameter, it will take the default value C<file>.
-
-=item C<-path>
-
-Set this to the directory that holds one or more m3u files. Can NOT be blank. 
-You must set this to a existing directory. Use "C</>" as the directory 
-seperator. Also do NOT add a trailing slash:
-
-   -path => "/my/path/", # WRONG
-   -path => "/my/path",  # TRUE
-
-Note that, *ONLY* the path you've specified will be searched. Any sub 
-directories it I<may> contain will not be searched.
-
-=item C<-file>
-
-If you set L<type|/-type> to C<file>, then you must set this to an existing file. 
-Don't set it to a full path. Only use the name of the file, because you 
-specify the path with L<path|/-path>:
-
-   -file => "/my/path/mp3.m3u", # WRONG
-   -file => "mp3.m3u",          # TRUE
 
 =item C<-seconds>
 
@@ -692,22 +620,16 @@ not search every word seperated by space, it will search the string "michael bea
 and probably does not return any results -- it will not match 
 "michael jackson - beat it"), it does not have a boolean search support, etc. If you 
 want to do something more complex, get the parsed tree and use it in your own 
-search function, or just re-define the private method C<search> like the private 
-method L<html|/"How can I change the HTML List layout?">.
+search function, or subclass this module and write your own C<search> method.
 
 =item C<-parse_path>
 
 The module assumes that all of the songs in your M3U lists are (or were: 
 the module does not check the existence of them) on the same drive. And it 
-builds a seperate data table for drive names like:
-
-   DRIVE => {
-             FIRST_LIST => 'G:',
-             # so on ...
-             }
-
-And removes that drive letter (if there is a drive letter) from the real file 
-path. If there is no drive letter, then the drive value is 'CDROM:'.
+builds a seperate data table for drive names and removes that drive letter 
+(if there is a drive letter) from the real file path. If there is no drive 
+letter (eg: under linux there is no such thing, or you saved m3u file into 
+the same volume as your mp3s), then the drive value is 'CDROM:'.
 
 So, if you have a mixed list like:
 
@@ -716,85 +638,117 @@ So, if you have a mixed list like:
    Z:\xyz.mp3
 
 set this parameter to 'C<asis>' to not to remove the drive letter from the real 
-path. Also, you "must" ignore the DRIVE table contents which will still contain 
-a possibly wrong value; export() does take the drive letters from the DRIVE table. 
+path. Also, you "must" ignore the drive table contents which will still contain 
+a possibly wrong value; export() does take the drive letters from the drive tables. 
 So, you can not use the drive area in the exported xml (for example).
 
-=item C<-ignore_chars>
+=item C<-overwrite>
 
-If you want some characters not to be escaped when exporting to xml, define
-this option as an arrayref of character numbers. I put this option to the 
-module because escaping with C<ord()> is not compatible with some languages. 
-Some characters in ISO-8859-9 are not shown properly for example.
+Same as the C<-overwrite> option in L<export|/export()> but C<new()> sets this 
+export() option globally.
 
-Usage:
+=item C<-encoding>
 
-   $parser = MP3::M3U::Parser->new( # ...
-                                 -ignore_chars => [199,208,214,220,221,222,
-                                                   231,240,246,252,253,254],
-                                    # ...
-                                   );
+Same as the C<-encoding> option in L<export|/export()> but C<new()> sets this 
+export() option globally.
 
-Not necessary to set with ISO-8859-1 encoding and probebaly with a lot 
-of others. But if you experience problems in the exported xml you can 
-use this option.
+=item C<-expformat>
+
+Same as the C<-format> option in L<export|/export()> but C<new()> sets this 
+export() option globally.
+
+=item C<-expdrives>
+
+Same as the C<-drives> option in L<export|/export()> but C<new()> sets this 
+export() option globally.
 
 =back
 
-=item B<parse()>
+=head3 B<parse()>
 
-Normally it does not take any arguments. Just call it like:
+It takes a list of arguments. The list can include file paths, 
+scalar references or filehandle references. You can mix these 
+types. Module interface can handle them correctly.
 
-   $parser->parse;
+   open FILEHANDLE, ...
+   $parser->parse(\*FILEHANDLE);
 
-But, if you want to just parse a file or list of files (means you don't need an 
-object) and export the parsed data to a xml or html file, you must call this 
-method with a true value.
+or with new versions of perl:
 
-   MP3::M3U::Parser->new(ARGS)->parser(1)->export(ARGS);
+   open my $fh, ...
+   $parser->parse($fh);
 
-See the related example below in the B<EXAMPLES> section.
-
-If you call this method without any arguments, it will return the parsed data 
-as a hash or hash reference:
-
-   my $hash = $parser->parse;
+   my $scalar = "#EXTM3U\nFoo - bar.mp3";
+   $parser->parse(\$scalar);
 
 or
 
-   my %hash = $parser->parse;
+   $parser->parse("/path/to/some/playlist.m3u");
 
-The data returned from C<parse()> method is like this (lets say, we are 
-parsing a list named 'I<mp3_16.m3u>'):
+or
 
-   # Parse the list(s) and get results:
-   $results = $parser->parse;
+   $parser->parse("/path/to/some/playlist.m3u",\*FILEHANDLE,\$scalar);
 
-   # $results is like this:
-   $results = {
-     'mp3_16' => [ # The parsed list's name is the main key.
-                   # and it's value is an arrayref.
-                   [ # inside, the values are also arrayrefs.
-                    '2 Unlimited - No Limit',          # 1st: ID3 Name
-                    '03:29',                           # 2nd: Time
-                    'G:\EN\2 Unlimited - No limit.mp3' # 3rd: File path.
-                   ],
-                   # If there are other songs in the list, they'll be added here.
-                 ],# End of 'mp3_16' key.
-    # if we've parsed other lists, their content is here.        
-   };
+Note that globs and scalars are passed as references.
 
-You can also use 
+Returns the object itself.
 
-   my $results = $parser->parse;
-      $parser->Dump("/path/to/mydump.txt",[$results]);
+=head3 B<result>
 
-to see the structure yourself.
+Must be called after C<parse>. Returns the result set created from
+the parsed data(s). Returns the data as an array or arrayref.
 
-=item B<info()>
+   $result = $parser->result;
+   @result = $parser->result;
 
-You must call this after calling L<parse|/parse()>. It returns an info hash about 
-the parsed data.
+Data structure is like this:
+
+   $VAR1 = [
+             {
+               'drive' => 'G:',
+               'file' => '/path/to/mylist.m3u',
+               'data' => [
+                           [
+                             'mp3\Singer - Song.mp3',
+                             'Singer - Song',
+                             232,
+                             'Singer',
+                             'Singer - Song'
+                           ],
+                           # other songs in the list
+                         ],
+               'total' => '3',
+               'list' => 'mylist'
+             },
+             # other m3u list
+           ];
+
+Each playlist is added as a hashref:
+
+   $pls = {
+           drive => "Drive letter if available",
+           file  => "Path to the parsed m3u file or generic name if GLOB/SCALAR",
+           data  => "Songs in the playlist",
+           total => "Total number of songs in the playlist",
+           list  => "name of the list",
+   }
+
+And the C<data> key is an AoA:
+
+   data => [
+            ["MP3 PATH INFO", "ID3 INFO","TIME","ARTIST","SONG"],
+            # other entries...
+            ]
+
+You can use the Data::Dumper module to see the structure yourself:
+
+   use Data::Dumper;
+   print Dumper $result;
+
+=head3 B<info()>
+
+You must call this after calling L<parse|/parse()>. It returns an info hash 
+about the parsed data.
 
    my %info = $parser->info;
 
@@ -806,27 +760,25 @@ The keys of the C<%info> hash are:
    average => Average time of the songs
    drive   => Drive names for parsed lists
 
-Note that the 'drive' key is a hash ref, while others are strings. If you 
-have parsed a M3U list named "mp3_01.m3u" and want to learn the drive letter 
-of it, call it like this: 
+Note that the 'drive' key is an arrayref, while others are strings. 
 
-   printf "Drive is %s\n", $info{drive}->{'mp3_01'};
+   printf "Drive letter for first list is %s\n", $info{drive}->[0];
 
 But, maybe you do not want to use the C<$info{drive}> table; see L<parse_path|/-parse_path> 
 option in L<new|/new()>.
 
-=item B<export()>
+=head3 B<export()>
 
 Exports the parsed data to a format. The format can be C<xml> or C<html>. 
 The HTML File' s style is based on the popular mp3 player B<WinAmp>' s 
-HTML List file. XML formatting (well... escaping) is experimental. Takes 
-some arguments:
+HTML List file. Takes several arguments:
 
 =over 4
 
 =item C<-file>
 
-The full path to the file you want to write the resulting data. Can NOT be blank.
+The full path to the file you want to write the resulting data. 
+If you do not set this parameter, a generic name will be used.
 
 =item C<-format>
 
@@ -846,154 +798,64 @@ Only required for the html format. If set to C<off>, you will not
 see the drive information in the resulting html file. Default is 
 C<on>. Also see L<parse_path|/-parse_path> option in L<new|/new()>.
 
-=back
+=item C<-overwrite>
 
-=item B<Dump()>
+If the file to export exists on the disk and you didn't set this 
+parameter to a true value, export() will die with an error.
 
-Dumps the data structure to a text file. Call this with a data structure 
-and full path of the text file you want to save:
-
-   $parser->Dump("/my/dump/file.txt",[%results]);
-
-Second argument must be an arrayref. Uses the standard Data::Dumper module.
+If you set this parameter to a true value, the named file will be 
+overwritten if already exists. Use carefully.
 
 =back
+
+Returns the object itself.
+
+=head3 B<reset>
+
+Resets the parser object and returns the object itself. Can be usefull 
+when exporting to html.
+
+   $parser->parse($fh       )->export->reset;
+   $parser->parse(\$scalar  )->export->reset;
+   $parser->parse("file.m3u")->export->reset;
+
+Will create individual files while this code
+
+   $parser->parse($fh       )->export;
+   $parser->parse(\$scalar  )->export;
+   $parser->parse("file.m3u")->export;
+
+creates also individual files but, file2 content will include 
+C<$fh> + C<$scalar> data and file3 will include 
+C<$fh> + C<$scalar> + C<file.m3u> data.
+
+=head2 Subclassing
+
+You may want to subclass the module to implement a more advanced
+search or to change the HTML template.
+
+To override the default search method create a C<search()> method 
+in your class and to override the default template create a C<template()> 
+method in your class.
+
+See the tests in the distribution for examples.
 
 =head2 Error handling
 
 Note that, if there is an error, the module will die with that error. So, 
 using C<eval> for all method calls can be helpful if you don't want to die:
 
-   sub my_sub {
-      # do some initial stuff ...
-      my %results;
-      eval { %results = $parser->parse };
-      if($@) {
-         warn "There was an error: $@";
-         return;
-      } else {
-         # do something with %results ...
-      }
-      # do something or not ...
-   }
+
+   eval {$parser->parse(@list)}
+   die "Parser error: $@" if $@;
 
 As you can see, if there is an error, you can catch this with C<eval> and 
 access the error message with the special Perl variable C<$@>.
 
 =head1 EXAMPLES
 
-=over 4
-
-=item B<How can I parse an M3U List?>
-
-Solution:
-
-   #!/usr/bin/perl -w
-   use strict;
-   use MP3::M3U::Parser;
-   my $parser = MP3::M3U::Parser->new(-type    => 'file',
-                                      -path    => '/my/path',
-                                      -file    => 'mp3.m3u',
-                                      -seconds => 'format');
-   my %results  = $parser->parse;
-
-=item B<How can I parse a list of files?>
-
-Solution: Put all your M3U lists into a directory and show this directory 
-to the module with the "-path" parameter:
-
-   #!/usr/bin/perl -w
-   use strict;
-   use MP3::M3U::Parser;
-   my $parser = MP3::M3U::Parser->new(-type    => 'dir',
-                                      -path    => '/my/path',
-                                      -seconds => 'format');
-   my %results  = $parser->parse;
-   my @lists    = keys %results;
-   my %info     = $parser->info;
-
-   printf "I have parsed these lists: %s\n",join(", ",@lists);
-
-   printf "There are %s songs in %s lists. Total time of the songs is %s. Average time is %s.",
-          $info{songs},
-          $info{files},
-          $info{ttime},
-          $info{average};
-
-=item B<How can I get the names of the parsed lists?>
-
-Solution: As you can see in the above examples:
-
-      my @lists = keys %results;
-
-Note that the C<.m3u> extension and path information are removed from the file 
-names when parsing.
-
-=item B<How can I "just" export the parsed tree to a format?>
-
-Solution (convert to xml and save):
-
-   #!/usr/bin/perl -w
-   use MP3::M3U::Parser;
-   MP3::M3U::Parser->new(-type    => 'dir',
-                         -path    => '/my/path',
-                         -seconds => 'format',
-                         )
-                   ->parse(1)
-                   ->export(-format   => 'xml',
-                            -file     => "/my/export/path/mp3.xml",
-                            -encoding => 'ISO-8859-9');
-   print "Done!\n";
-
-If you dont need any objects, just call new() followed by parse() followed by 
-export(). But B<DON'T FORGET> to pass a true value to parse:
-
-	parse(1)
-
-If you don't do this, parse() method will not pass an object to export() and 
-you'll get a fatal error. If you want to get the parsed results, you must call 
-parse() without any arguments like in the examples above.
-
-=item B<How can I do a basic case-insensitive search?>
-
-Solution: Just pass the L<search|/-search> parameter with the string you want to search:
-
-   my $parser = MP3::M3U::Parser->new(-type    => 'dir',
-                                      -path    => '/my/path',
-                                      -seconds => 'format',
-                                      -search  => 'KLF', # Search KLF songs
-                                      );
-
-=item B<How can I change the HTML List layout?>
-
-Solution: Just re-define the sub 'C<MP3::M3U::Parser::html>' in your program.
-To do this, first copy the sub html
-
-   sub html {
-   # subroutine contents
-   }
-
-from this module into your program, but do NOT forget to rename it to:
-
-   sub MP3::M3U::Parser::html {
-   # subroutine contents
-   }
-
-if you don't name it like this, the module will not see your changed sub, 
-because it belongs to your name space not this module's. Then change what 
-you want. I don't plan to add a template option, because I find it unnecessary. 
-But if you want to do such a thing, this is the solution.
-
-Note: re-definitions generate warnings.
-
-=back
-
-=head1 NOTES
-
-This module is based on a code I'm using for my own mp3 archive. There is another 
-M3U parser in CPAN, but it does not have the functionality I want and it skips 
-the EXTINFO lines. So, I wrote this module. This module does not check the 
-existence of the mp3 files, it just parses the playlist entries.
+See the tests in the distribution for example codes. If you don't have 
+the distro, you can download it from CPAN.
 
 =head2 TIPS
 
@@ -1015,29 +877,23 @@ you can have an easy maintained archive.
 
 =back
 
+=head1 CAVEATS
 
-=head2 TODO
-
-=over 4
-
-=item *
-
-Better xml transformation.
-
-=item *
-
-Split big exported(HTML) into separate files (maybe).
-
-=item * 
-
-Multiple L<file|/-file> parameters (maybe).
-
-=back
+v2 is B<not> compatible with v1x. v2 of this module breaks
+old code. See the I<Changes> file for details.
 
 =head1 BUGS
 
-I've tested this module a lot, but if you find any bugs or missed parts, 
-you can contact me.
+=over 4
+
+=item * 
+
+HTML and XML escaping is limited to these characters: 
+E<amp> E<quot> E<lt> E<gt>.
+
+=back 
+
+Contact the author if you find any other bugs.
 
 =head1 SEE ALSO
 
@@ -1049,7 +905,7 @@ Burak Gürsoy, E<lt>burakE<64>cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 Burak Gürsoy. All rights reserved.
+Copyright 2003-2004 Burak Gürsoy. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

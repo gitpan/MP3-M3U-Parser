@@ -1,6 +1,11 @@
 lib/MP3/M3U/Parser.pm
-t/use.t
+t/01_basic.t
+t/02_basic_xml.t
+t/03_sub_html.t
+t/04_sub_search.t
 Changes
 Makefile.PL
 MANIFEST
 README
+test.m3u
+META.yml                                 Module meta-data (added by MakeMaker)
