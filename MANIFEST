@@ -1,5 +1,7 @@
+Parser.pm
+t/use.t
 Changes
 Makefile.PL
 MANIFEST
-Parser.pm
 README
+

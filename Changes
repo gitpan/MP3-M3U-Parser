@@ -1,4 +1,11 @@
 Revision history for Perl extension MP3::M3U::Parser.
 
+Time zone is GMT+2.
+
+1.01 Wed Feb 26 18:14:51 2003
+	Fixed definition of Dump() in the POD. Added the definition 
+	of the parsed data structure to the POD. Added the test 't/use.t'
+	to the distribution. Module's code didn't changed.
+
 1.0 Tue Feb 25 19:23:14 2003
 	First release.

@@ -61,7 +61,7 @@ sub parse {
    #                            'FULLPATH', # always has a value.
    #                           ],
    #                         # Array continues ...
-   #                         ]
+   #                         ],
    #            # and so on ...
    #            };
    #
@@ -174,7 +174,7 @@ RECORD:
                delete $self->{M3U}{$cd}[$index];
             }
          } else {
-            # If we are no searching, just increase the index:
+            # If we are not searching, just increase the index:
             $index++;
          }
          next RECORD;
@@ -405,7 +405,7 @@ sub validate {
    my %known  = map {$_ => 1} @{+shift};
    my %passed = map {$_ => 1} @{+shift};
    foreach (keys %passed) {
-      $self->error("Validate: Unknown parameter '$_' passed to $sub()!") unless(exists $known{$_});
+      $self->error("Unknown parameter '$_' passed to $sub()!") unless(exists $known{$_});
    }
 }
 
@@ -709,6 +709,33 @@ or
 
    my %hash = $parser->parse;
 
+The data returned from C<parse()> method is like this (lets say, we are 
+parsing a list named 'I<mp3_16.m3u>'):
+
+   # Parse the list(s) and get results:
+   $results = $parser->parse;
+
+   # $results is like this:
+   $results = {
+     'mp3_16' => [ # The parsed list's name is the main key.
+                   # and it's value is an arrayref.
+                   [ # inside, the values are also arrayrefs.
+                    '2 Unlimited - No Limit',          # 1st: ID3 Name
+                    '03:29',                           # 2nd: Time
+                    'G:\EN\2 Unlimited - No limit.mp3' # 3rd: File path.
+                   ],
+                   # If there are other songs in the list, they'll be added here.
+                 ],# End of 'mp3_16' key.
+    # if we've parsed other lists, their content is here.        
+   };
+
+You can also use 
+
+   my $results = $parser->parse;
+      $parser->Dump("/path/to/mydump.txt",[$results]);
+
+to see the structure yourself.
+
 =item B<info()>
 
 You must call this after calling L<parse|/parse()>. It returns an info hash about 
@@ -768,9 +795,9 @@ C<on>. Also see L<parse_path|/-parse_path> option in L<new|/new()>.
 Dumps the data structure to a text file. Call this with a data structure 
 and full path of the text file you want to save:
 
-   $parser->Dump([%results],"/my/dump/file.txt");
+   $parser->Dump("/my/dump/file.txt",[%results]);
 
-First argument must be an arrayref. Uses the standard Data::Dumper module.
+Second argument must be an arrayref. Uses the standard Data::Dumper module.
 
 =back
 
