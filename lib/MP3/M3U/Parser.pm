@@ -15,7 +15,7 @@ use File::Spec ();
 use IO::File   ();
 use Cwd;
 
-$VERSION = '2.0';
+$VERSION = '2.01';
 
 sub new {
    # -parse_path -seconds -search -overwrite
@@ -162,12 +162,14 @@ RECORD:
       if ($artist) {
          $artist =~ s[^\s+][];
          $artist =~ s[\s+$][];
+         $artist =~ s[.*[\\/]][]; # remove path junk
          $dkey->[$index][ARTIST] = $artist;
       }
       if (@xsong) {
          my $song = join '-', @xsong;
          $song =~ s[^\s+][];
          $song =~ s[\s+$][];
+         $song =~ s[\.[a-zA-Z0-9]+$][]; # remove extension if exists
          $dkey->[$index][SONG] = $song;
       }
 
@@ -596,7 +598,7 @@ the parsed data to it. The format can be B<xml> or B<html>.
 
 =head2 Methods
 
-=head3 B<new()>
+=head3 B<new>
 
 The object constructor. Takes several arguments like:
 
@@ -639,32 +641,32 @@ So, if you have a mixed list like:
 
 set this parameter to 'C<asis>' to not to remove the drive letter from the real 
 path. Also, you "must" ignore the drive table contents which will still contain 
-a possibly wrong value; export() does take the drive letters from the drive tables. 
+a possibly wrong value; C<export> does take the drive letters from the drive tables. 
 So, you can not use the drive area in the exported xml (for example).
 
 =item C<-overwrite>
 
-Same as the C<-overwrite> option in L<export|/export()> but C<new()> sets this 
-export() option globally.
+Same as the C<-overwrite> option in L<export|/export> but C<new> sets this 
+C<export> option globally.
 
 =item C<-encoding>
 
-Same as the C<-encoding> option in L<export|/export()> but C<new()> sets this 
-export() option globally.
+Same as the C<-encoding> option in L<export|/export> but C<new> sets this 
+C<export> option globally.
 
 =item C<-expformat>
 
-Same as the C<-format> option in L<export|/export()> but C<new()> sets this 
-export() option globally.
+Same as the C<-format> option in L<export|/export> but C<new> sets this 
+C<export> option globally.
 
 =item C<-expdrives>
 
-Same as the C<-drives> option in L<export|/export()> but C<new()> sets this 
-export() option globally.
+Same as the C<-drives> option in L<export|/export> but C<new> sets this 
+C<export> option globally.
 
 =back
 
-=head3 B<parse()>
+=head3 B<parse>
 
 It takes a list of arguments. The list can include file paths, 
 scalar references or filehandle references. You can mix these 
@@ -713,7 +715,7 @@ Data structure is like this:
                              'Singer - Song',
                              232,
                              'Singer',
-                             'Singer - Song'
+                             'Song'
                            ],
                            # other songs in the list
                          ],
@@ -745,9 +747,9 @@ You can use the Data::Dumper module to see the structure yourself:
    use Data::Dumper;
    print Dumper $result;
 
-=head3 B<info()>
+=head3 B<info>
 
-You must call this after calling L<parse|/parse()>. It returns an info hash 
+You must call this after calling L<parse|/parse>. It returns an info hash 
 about the parsed data.
 
    my %info = $parser->info;
@@ -764,10 +766,10 @@ Note that the 'drive' key is an arrayref, while others are strings.
 
    printf "Drive letter for first list is %s\n", $info{drive}->[0];
 
-But, maybe you do not want to use the C<$info{drive}> table; see L<parse_path|/-parse_path> 
-option in L<new|/new()>.
+But, maybe you do not want to use the C<$info{drive}> table; see C<-parse_path> 
+option in L<new|/new>.
 
-=head3 B<export()>
+=head3 B<export>
 
 Exports the parsed data to a format. The format can be C<xml> or C<html>. 
 The HTML File' s style is based on the popular mp3 player B<WinAmp>' s 
@@ -796,12 +798,12 @@ also used in the meta tag section of the html file.
 
 Only required for the html format. If set to C<off>, you will not 
 see the drive information in the resulting html file. Default is 
-C<on>. Also see L<parse_path|/-parse_path> option in L<new|/new()>.
+C<on>. Also see C<-parse_path> option in L<new|/new>.
 
 =item C<-overwrite>
 
 If the file to export exists on the disk and you didn't set this 
-parameter to a true value, export() will die with an error.
+parameter to a true value, C<export> will die with an error.
 
 If you set this parameter to a true value, the named file will be 
 overwritten if already exists. Use carefully.
@@ -834,8 +836,8 @@ C<$fh> + C<$scalar> + C<file.m3u> data.
 You may want to subclass the module to implement a more advanced
 search or to change the HTML template.
 
-To override the default search method create a C<search()> method 
-in your class and to override the default template create a C<template()> 
+To override the default search method create a C<search> method 
+in your class and to override the default template create a C<template> 
 method in your class.
 
 See the tests in the distribution for examples.
@@ -903,9 +905,11 @@ L<MP3::M3U>.
 
 Burak Gürsoy, E<lt>burakE<64>cpan.orgE<gt>
 
-=head1 COPYRIGHT AND LICENSE
+=head1 COPYRIGHT
 
 Copyright 2003-2004 Burak Gürsoy. All rights reserved.
+
+=head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

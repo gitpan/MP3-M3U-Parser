@@ -2,6 +2,14 @@ Revision history for Perl extension MP3::M3U::Parser.
 
 Time zone is GMT+2.
 
+2.01 Mon Jul 26 19:54:14 2004
+	=> Minor fix in Pod.
+	=> SONG element was including ".mp3" if it is 
+	   extracted from PATH. Fixed.
+	=> ARTIST element was including path info. Fixed.
+	   But, if the song name or artist includes slash or backslash,
+	   we have a problem
+
 2.0 Fri Jul 23 23:19:48 2004
 	=> BEWARE!!! THIS NEW VERSION BREAKS THE OLD CODE!
 	=> Now the module looks *like* a module. It was
