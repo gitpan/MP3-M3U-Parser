@@ -4,7 +4,7 @@ use File::Spec ();
 use IO::File   ();
 use vars qw/$AUTOLOAD $VERSION/;
 
-$VERSION = '1.04';
+$VERSION = '1.1';
 
 sub new {
    my $class = shift;
@@ -13,7 +13,7 @@ sub new {
 
       $self->error("Parameters passed to new() must be in 'param => value' format!") if(scalar(@_) % 2);
    my %options = @_; # Parameters;
-      $self->validate('new',[qw/-type -path -file -seconds -search -parse_path/],[keys %options]);
+      $self->validate('new',[qw/-type -path -file -seconds -search -parse_path -ignore_chars/],[keys %options]);
 
    INIT:
       $self->{type}          = $options{'-type'}       || 'file'; # file | dir
@@ -30,8 +30,24 @@ sub new {
       $self->{TOTAL_SONGS}   = 0;     # Counter
       $self->{AVERAGE_TIME}  = 0;     # Counter
       $self->{ACOUNTER}      = 0;     # Counter
-      $self->{EXPORT_FORMAT} = undef; # Export to what?
-      $self->{ERROR}         = undef; # Contains error messages.
+      $self->{EXPORT_FORMAT} = '';    # Export to what?
+      $self->{ERROR}         = '';    # Contains error messages.
+
+      # I put such a functionaly because some turkish characters 
+      # are not escaped properly
+      $self->{IGNORE_CHARS}  = $options{'-ignore_chars'} || undef;
+      $self->{ESCAPE_CHARS}  = undef;
+
+      if($self->{IGNORE_CHARS} and ref($self->{IGNORE_CHARS}) ne 'ARRAY' ){
+         $self->error("Unknown ignore_chars parameter! It must be an arrayref.") ;
+      } else {
+         $self->{IGNORE_CHARS} = $self->{IGNORE_CHARS} ? {map { $_ => 1 } @{ $self->{IGNORE_CHARS} } } : {};
+         my @octal;
+	 for (200..377) {
+            push(@octal, \$_) unless( exists $self->{IGNORE_CHARS}{$_} );
+	 }
+	 $self->{ESCAPE_CHARS} = [join('',@octal)];
+      }
 
    CHECK_PARAMS:
       $self->{path} = File::Spec->canonpath($self->{path});
@@ -140,7 +156,7 @@ RECORD:
          if ($sec) {
             $sec = $self->seconds($sec);
          } else {
-            $sec = '';
+            $sec = $self->seconds(0);
          }
          $self->{M3U}{$cd}[$index]->[1] = $sec;
          $taver++;
@@ -232,7 +248,7 @@ sub export {
             $sc = $#{$self->{M3U}{$cd}}+1;
             next unless $sc;
             print $fh qq~<cd name="$cd" drive="$self->{DRIVE}{$cd}" songs="$sc">\n~;
-            foreach $m3u (@{ $self->{M3U}{$cd} }) {
+            foreach $m3u (@{ $self->{M3U}{$cd} }) { 
                print $fh sprintf qq~<song id3="%s" time="%s">%s</song>\n~,$self->escape($m3u->[0]) || '',$m3u->[1] || '',$self->escape($m3u->[2]);
             }
             print $fh "</cd>\n";
@@ -286,23 +302,21 @@ sub escape {
 
    my $self = shift;
    my $text = shift || return;
+   #$bad .= chr $_ for (1..8,11,12,14..31,127..144,147..159);$text =~ s/[$bad]//gs;
+   my %escape = (
+              '&' => '&amp;',
+              '"' => '&quot;',
+              '<' => '&lt;',
+              '>' => '&gt;',
+   );
 
-   # These characters are represented as black rectangles 
-   # (in my system) and these things (some of them) give 
-   # "well-formed" error with XML::Simple (Well, actually 
-   # XML::Parser dies). If anyone has any suggestions/info 
-   # about this, please tell them to me :)
-
-   # <del_or_correct>
-   if ($self->{EXPORT_FORMAT} eq 'xml') {
-      my $bad; 
-         $bad .= chr $_ for (1..8,11,12,14..31,127..144,147..159);
-         $text =~ s/[$bad]//gs;
+   $text =~ s,\Q$_,$escape{$_},gs foreach keys %escape;
+   if($self->{EXPORT_FORMAT} eq 'xml') {
+      my $escapes = $self->{ESCAPE_CHARS};
+      $text =~ s/($escapes)/'&#'.ord($1).';'/ges;
    }
-   # </del_or_correct>
 
-      $text =~ s,&,&amp;,gs;  #&
-      $text =~ s,",&quot;,gs; #"
+
    return $text;
 }
 
@@ -344,8 +358,9 @@ sub read_dir {
 sub seconds {
    # Format seconds if wanted.
    my $self = shift;
-   my $all  = shift || 1;
+   my $all  = shift;
    return($all) unless( $self->{seconds} eq 'format' and $all !~ /:/);
+   return '00:00' unless $all;
       $all  = $all/60;
    my $min  = int($all);
    my $sec  = sprintf("%02d",int(($all - $min)*60));
@@ -704,6 +719,25 @@ set this parameter to 'C<asis>' to not to remove the drive letter from the real
 path. Also, you "must" ignore the DRIVE table contents which will still contain 
 a possibly wrong value; export() does take the drive letters from the DRIVE table. 
 So, you can not use the drive area in the exported xml (for example).
+
+=item C<-ignore_chars>
+
+If you want some characters not to be escaped when exporting to xml, define
+this option as an arrayref of character numbers. I put this option to the 
+module because escaping with C<ord()> is not compatible with some languages. 
+Some characters in ISO-8859-9 are not shown properly for example.
+
+Usage:
+
+   $parser = MP3::M3U::Parser->new( # ...
+                                 -ignore_chars => [199,208,214,220,221,222,
+                                                   231,240,246,252,253,254],
+                                    # ...
+                                   );
+
+Not necessary to set with ISO-8859-1 encoding and probebaly with a lot 
+of others. But if you experience problems in the exported xml you can 
+use this option.
 
 =back
 

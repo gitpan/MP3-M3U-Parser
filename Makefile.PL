@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'         => 'MP3::M3U::Parser',
-    'VERSION_FROM' => 'Parser.pm',
+    'VERSION_FROM' => 'lib/MP3/M3U/Parser.pm',
     'PREREQ_PM'    => { 'File::Spec'   => 0,
                         'IO::File'     => 0,
                         'Data::Dumper' => 0,},

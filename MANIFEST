@@ -1,4 +1,4 @@
-Parser.pm
+lib/MP3/M3U/Parser.pm
 t/use.t
 Changes
 Makefile.PL

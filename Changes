@@ -2,6 +2,13 @@ Revision history for Perl extension MP3::M3U::Parser.
 
 Time zone is GMT+2.
 
+1.1 Mon Aug 25 21:42:31 2003
+	=> Better XML escaping.
+	=> Added '-ignore_chars' parameter.
+	=> Fixed a bug in seconds()
+	=> Moved module to ./lib/MP3/M3U in the 
+	   distribution package.
+
 1.04 Sun Jun 22 15:54:43 2003
 	=> Removed sort() from export() method (the module was using 
 	   it on the $self->{M3U}{$cd} object table). 
