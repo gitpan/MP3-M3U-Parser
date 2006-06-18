@@ -1,15 +1,18 @@
 lib/MP3/M3U/Parser.pm
-t/01_basic.t
-t/02_basic_xml.t
-t/03_sub_html.t
-t/04_sub_search.t
-t/05_scalar_xml.t
-t/06_scalar_html.t
+t/01-pod.t
+t/02-pod-coverage.t
+t/03-basic.t
+t/04-basic_xml.t
+t/05-sub_html.t
+t/06-sub_search.t
+t/07-scalar_xml.t
+t/08-scalar_html.t
+t/skip.test
 eg/m3u.cgi
 test.m3u
 Changes
 Makefile.PL
+Build.PL
 MANIFEST
 README
-SIGNATURE
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml

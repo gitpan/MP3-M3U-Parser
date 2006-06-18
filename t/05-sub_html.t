@@ -15,7 +15,7 @@ exit;
 package MyParser;
 use base qw[MP3::M3U::Parser];
 
-sub template {
+sub _template {
    return <<'MP3M3UParserTemplate';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
    "http://www.w3.org/TR/html4/loose.dtd">

@@ -11,7 +11,7 @@ use constant SONG    => 4;
 
 use constant MAXDATA => 4; # Maximum index number of the data table
 
-$VERSION = '2.1';
+$VERSION = '2.20';
 
 sub new {
    # -parse_path -seconds -search -overwrite
@@ -48,20 +48,20 @@ sub parse {
    my $file;
    foreach $file (@files) {
       unless(ref $file) {
-         $file = $self->locate_file($file);
+         $file = $self->_locate_file($file);
          -e $file or die "'$file' does not exist!";
       }
-      $self->parse_file($file);
+      $self->_parse_file($file);
    }
 
    # Average time of all the parsed songs:
    $self->{AVERAGE_TIME} = ($self->{ACOUNTER} and $self->{TOTAL_TIME}) 
-                           ? $self->seconds($self->{TOTAL_TIME}/$self->{ACOUNTER})
+                           ? $self->_seconds($self->{TOTAL_TIME}/$self->{ACOUNTER})
                            : 0;
    return $self if defined wantarray;
 }
 
-sub parse_file {
+sub _parse_file {
    # supports disk files, scalar variables and filehandles (typeglobs)
    my $self = shift;
    my $file = shift;
@@ -79,7 +79,7 @@ sub parse_file {
    if ($ref) {
       $this_file = 'ANON'.$self->{ANON}++;
    } else {
-      $this_file = $self->locate_file($file);
+      $this_file = $self->_locate_file($file);
    }
    $self->{'_M3U_'}[$i] = {file  => $this_file,
                            list  => $ref ? $this_file : ($cd || ''),
@@ -134,7 +134,7 @@ RECORD:
          $ttime     += $sec;
          $temp_sec   = $sec;
          $dkey->[$index][ID3] = join(",", @song);
-         $dkey->[$index][LEN] = $self->seconds($sec || 0);
+         $dkey->[$index][LEN] = $self->_seconds($sec || 0);
          $taver++;
          next RECORD; # jump to path info
       }
@@ -177,7 +177,7 @@ RECORD:
 
       # If we are searching something:
       if($self->{search_string}) {
-         if($self->search($dkey->[$index][PATH], $dkey->[$index][ID3])) {
+         if($self->_search($dkey->[$index][PATH], $dkey->[$index][ID3])) {
             $index++; # If we got a match, increase the index
          } else { # If we didnt matched anything, resize these counters ...
             $tsong--;
@@ -223,7 +223,7 @@ sub result {
    return(wantarray ? @{$self->{'_M3U_'}} : $self->{'_M3U_'});
 }
 
-sub locate_file {
+sub _locate_file {
    require File::Spec;
 
    my $self = shift;
@@ -237,7 +237,7 @@ sub locate_file {
    return File::Spec->canonpath($file);
 }
 
-sub search {
+sub _search {
    my $self = shift;
    my $path = shift;
    my $id3  = shift;
@@ -248,7 +248,7 @@ sub search {
    return(0);
 }
 
-sub escape {
+sub _escape {
    my $self = shift;
    my $text = shift || return '';
    #$bad .= chr $_ for (1..8,11,12,14..31,127..144,147..159);$text =~ s/[$bad]//gs;
@@ -272,14 +272,14 @@ sub info {
    return(
           songs   => $self->{TOTAL_SONGS},
           files   => $self->{TOTAL_FILES},
-          ttime   => $self->{TOTAL_TIME}    ? $self->seconds($self->{TOTAL_TIME}) 
+          ttime   => $self->{TOTAL_TIME}    ? $self->_seconds($self->{TOTAL_TIME}) 
                                             : 0,
           average => $self->{AVERAGE_TIME} || 0,
           drive   => [@drive],
    );
 }
 
-sub seconds {
+sub _seconds {
    # Format seconds if wanted.
    my $self = shift;
    my $all  = shift;
@@ -307,7 +307,7 @@ sub export {
    my $drives    = $opt{'-drives'}    || $self->{'expdrives'}    || 'on';
    my $overwrite = $opt{'-overwrite'} || $self->{'overwrite'}    ||  0; # global overwrite || local overwrite || don't overwrite
    my $to_scalar = $opt{'-toscalar'} || $self->{'exptoscalar'} ||  0;
-      $file      = $self->locate_file($file) unless $to_scalar;
+      $file      = $self->_locate_file($file) unless $to_scalar;
    my $fh;
    if ($to_scalar) {
       die "-toscalar must be a SCALAR ref!" unless ref $to_scalar and ref $to_scalar eq 'SCALAR';   
@@ -323,7 +323,7 @@ sub export {
    my($cd,$m3u);
    my $OUTPUT = '';
    if ($format eq 'xml') {
-      $self->{TOTAL_TIME} = $self->seconds($self->{TOTAL_TIME}) if $self->{TOTAL_TIME} > 0;
+      $self->{TOTAL_TIME} = $self->_seconds($self->{TOTAL_TIME}) if $self->{TOTAL_TIME} > 0;
       $OUTPUT .= sprintf qq~<?xml version="1.0" encoding="%s" ?>\n~, $encoding;
       $OUTPUT .= sprintf qq~<m3u lists="%s" songs="%s" time="%s" average="%s">\n~, $self->{TOTAL_FILES}, $self->{TOTAL_SONGS}, $self->{TOTAL_TIME}, $self->{AVERAGE_TIME};
       my $sc = 0;
@@ -332,7 +332,7 @@ sub export {
          next unless $sc;
          $OUTPUT .= sprintf qq~<list name="%s" drive="%s" songs="%s">\n~, $cd->{list}, $cd->{drive}, $sc;
          foreach $m3u (@{ $cd->{data} }) { 
-            $OUTPUT .= sprintf qq~<song id3="%s" time="%s">%s</song>\n~, $self->escape($m3u->[ID3]) || '',$m3u->[LEN] || '',$self->escape($m3u->[PATH]);
+            $OUTPUT .= sprintf qq~<song id3="%s" time="%s">%s</song>\n~, $self->_escape($m3u->[ID3]) || '',$m3u->[LEN] || '',$self->_escape($m3u->[PATH]);
          }
          $OUTPUT .= "</list>\n";
          $sc = 0;
@@ -346,12 +346,12 @@ sub export {
       # export(), you'll get the old value):
       local $self->{seconds} = 'format';
       my %t;
-      ($t{up},$t{cd},$t{data},$t{down}) = split /<!-- MP3DATASPLIT -->/, $self->template;
+      ($t{up},$t{cd},$t{data},$t{down}) = split /<!-- MP3DATASPLIT -->/, $self->_template;
       foreach (keys %t) {
          $t{$_} =~ s,^\s+,,gs;
          $t{$_} =~ s,\s+$,,gs;
       }
-      my $tmptime = $self->{TOTAL_TIME} ? $self->seconds($self->{TOTAL_TIME}) : undef;
+      my $tmptime = $self->{TOTAL_TIME} ? $self->_seconds($self->{TOTAL_TIME}) : undef;
       my @tmptime;
       if ($tmptime) {
          @tmptime = split /:/,$tmptime;
@@ -361,13 +361,13 @@ sub export {
               ENCODING    => $encoding,
               SONGS       => $self->{TOTAL_SONGS},
               TOTAL       => $self->{TOTAL_FILES},
-              AVERTIME    => $self->{AVERAGE_TIME} ? $self->seconds($self->{AVERAGE_TIME}) : '<i>Unknown</i>',
-              FILE        => $to_scalar ? '' : $self->locate_file($file),
+              AVERTIME    => $self->{AVERAGE_TIME} ? $self->_seconds($self->{AVERAGE_TIME}) : '<i>Unknown</i>',
+              FILE        => $to_scalar ? '' : $self->_locate_file($file),
               TOTAL_FILES => $self->{TOTAL_FILES},
               TOTAL_TIME  => @tmptime ? [@tmptime] : '',
       };
 
-      $OUTPUT .= $self->tcompile(template => $t{up}, params=> {HTML => $HTML});
+      $OUTPUT .= $self->_tcompile(template => $t{up}, params=> {HTML => $HTML});
       my($song,$cdrom, $dlen);
       foreach $cd (@{ $self->{'_M3U_'} }) {
          next if($#{$cd->{data}} < 0);
@@ -380,9 +380,9 @@ sub export {
                $song = (split /\\/, $m3u->[PATH])[-1] || $m3u->[PATH];
                $song = (split /\./, $song       )[ 0] || $song;
             }
-            $dlen = $m3u->[LEN] ? $self->seconds($m3u->[LEN]) : '&nbsp;';
-            $song = $song       ? $self->escape($song)        : '&nbsp;';
-            $OUTPUT .= sprintf "%s\n", $self->tcompile(template => $t{data}, params=> {data => {len => $dlen, song => $song}});
+            $dlen = $m3u->[LEN] ? $self->_seconds($m3u->[LEN]) : '&nbsp;';
+            $song = $song       ? $self->_escape($song)        : '&nbsp;';
+            $OUTPUT .= sprintf "%s\n", $self->_tcompile(template => $t{data}, params=> {data => {len => $dlen, song => $song}});
          }
          $cdrom = '';
       }
@@ -399,7 +399,7 @@ sub export {
 }
 
 # compile template
-sub tcompile {
+sub _tcompile {
    my $self     = shift;
    my $class    = ref $self;
    die "Invalid number of parameters!" if scalar @_ % 2;
@@ -427,7 +427,7 @@ sub tcompile {
 }
 
 # HTML template code
-sub template {
+sub _template {
    return <<'MP3M3UParserTemplate';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
    "http://www.w3.org/TR/html4/loose.dtd">
@@ -639,7 +639,9 @@ not search every word seperated by space, it will search the string "michael bea
 and probably does not return any results -- it will not match 
 "michael jackson - beat it"), it does not have a boolean search support, etc. If you 
 want to do something more complex, get the parsed tree and use it in your own 
-search function, or subclass this module and write your own C<search> method.
+search function, or subclass this module and write your own C<_search> method
+(notice the underscore in the method name). See the tests for a subclassing
+example.
 
 =item C<-parse_path>
 
@@ -864,8 +866,8 @@ C<$fh> + C<$scalar> + C<file.m3u> data.
 You may want to subclass the module to implement a more advanced
 search or to change the HTML template.
 
-To override the default search method create a C<search> method 
-in your class and to override the default template create a C<template> 
+To override the default search method create a C<_search> method 
+in your class and to override the default template create a C<_template> 
 method in your class.
 
 See the tests in the distribution for examples.
@@ -935,11 +937,12 @@ Burak Gürsoy, E<lt>burakE<64>cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2003-2004 Burak Gürsoy. All rights reserved.
+Copyright 2003-2006 Burak Gürsoy. All rights reserved.
 
 =head1 LICENSE
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+This library is free software; you can redistribute it and/or modify 
+it under the same terms as Perl itself, either Perl version 5.8.8 or, 
+at your option, any later version of Perl 5 you may have available.
 
 =cut

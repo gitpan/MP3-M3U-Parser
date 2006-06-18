@@ -2,6 +2,19 @@ Revision history for Perl extension MP3::M3U::Parser.
 
 Time zone is GMT+2.
 
+2.20 Sun Jun 18 03:58:36 2006
+	=> SIGNATURE sent to oblivion :p
+	=> Added Build.PL
+	=> Updated Makefile.PL
+	=> Updated tests
+	=> Updated copyright & license
+	=> Private methods (including template() & search())
+	   renamed to include an initial underscore:
+	      search() -> _search()
+	      template -> _template()
+	      etc.
+	   Beware() if you->are('sub-classing');
+
 2.1 Tue Sep 14 20:47:09 2004
 	=> export() now has the ability to dump the generated data
 	   to a scalar instead of exporting to a file. Useful for

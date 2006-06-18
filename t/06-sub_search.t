@@ -15,7 +15,7 @@ exit;
 package MyParser;
 use base qw[MP3::M3U::Parser];
 
-sub search {
+sub _search {
    my $self   = shift;
    my $path   = shift;
    my $id3    = shift;

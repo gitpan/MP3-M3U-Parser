@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use CGI;
-use MP3::M3U::Parser 2.1;
+use MP3::M3U::Parser 2.20;
 
 my $cgi = CGI->new;
 my $p   = $cgi->url;
@@ -16,7 +16,7 @@ my $OUT;
 
 $cgi->param('m3u') ? m3u() : list();
 print $cgi->header(-type => "text/$output_format",-charset => $encoding).$OUT;
-exit;
+#exit;
 
 sub list {
    opendir DIR, $base_dir;
