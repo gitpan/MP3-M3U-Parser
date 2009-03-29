@@ -1,7 +1,6 @@
 #!/usr/bin/env perl -w
 use strict;
-use Test;
-BEGIN { plan tests => 1 }
+use Test::More qw(no_plan);
 
 use MP3::M3U::Parser;
 
@@ -16,6 +15,3 @@ print FILE $output;
 close FILE;
 
 ok(1);
-exit;
-
-__END__

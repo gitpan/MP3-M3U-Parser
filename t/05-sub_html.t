@@ -1,7 +1,6 @@
 #!/usr/bin/env perl -w
 use strict;
-use Test;
-BEGIN { plan tests => 1 }
+use Test::More qw( no_plan );
 
 my $parser = MyParser->new;
    $parser->parse('test.m3u');
@@ -10,7 +9,6 @@ my $parser = MyParser->new;
                    -overwrite => 1);
 
 ok(1);
-exit;
 
 package MyParser;
 use base qw[MP3::M3U::Parser];
@@ -67,7 +65,3 @@ sub _template {
 </html>
 MP3M3UParserTemplate
 }
-
-1;
-
-__END__

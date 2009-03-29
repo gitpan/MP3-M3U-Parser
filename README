@@ -28,16 +28,17 @@ DEPENDENCIES
 
 This module requires these other modules:
 
-	File::Spec
-	IO::File
-	Cwd
-	Text::Template
+   File::Spec
+   IO::File
+   Cwd
+   Text::Template
+   Test::More
 
 All are available on CPAN
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2003-2006 Burak Gürsoy <burak@cpan.org>. All rights reserved.
+Copyright (C) 2003-2009 Burak Gürsoy <burak@cpan.org>. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify 
 it under the same terms as Perl itself, either Perl version 5.8.8 or, 

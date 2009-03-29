@@ -7,7 +7,6 @@ t/05-sub_html.t
 t/06-sub_search.t
 t/07-scalar_xml.t
 t/08-scalar_html.t
-t/skip.test
 eg/m3u.cgi
 test.m3u
 Changes

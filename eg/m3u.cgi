@@ -10,7 +10,7 @@ my $xml = $cgi->param('xml');
 my $encoding      = 'ISO-8859-9'; # http encoding
 my $output_format = $xml ? 'xml' : 'html';
 my $base_dir      = "."; # where are your m3u files?
-my $error         = "Unvalid parameter!";
+my $error         = "Invalid parameter!";
 
 my $OUT;
 

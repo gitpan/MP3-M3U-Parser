@@ -11,7 +11,7 @@ use constant SONG    => 4;
 
 use constant MAXDATA => 4; # Maximum index number of the data table
 
-$VERSION = '2.20';
+$VERSION = '2.21';
 
 sub new {
    # -parse_path -seconds -search -overwrite
@@ -141,7 +141,7 @@ RECORD:
 
       # Get the drive and path info.      Possible cases are:
       if($m3u =~ m{^\w:[\\/](.+?)$}x or # C:\mp3\Singer - Song.mp3
-         $m3u =~ m{^   [\\/](.+?)$}x or # \mp3\Singer - Song.mp3
+         $m3u =~ m{^   [\\/]([^\\/].+?)$}x or # \mp3\Singer - Song.mp3
          $m3u =~ m{^        (.+?)$}x    # Singer - Song.mp3
          ) {
          $dkey->[$index][PATH] = $self->{parse_path} eq 'asis' ? $m3u : $1;
@@ -895,7 +895,7 @@ the distro, you can download it from CPAN.
 
 =item B<WinAmp>
 
-(For v2.80. I don't use Winamp v3 series.) If you don't see any EXTINF lines in 
+(For v2.80) If you don't see any EXTINF lines in 
 your saved M3U lists, open preferences, go to "Options", set "Read titles on" 
 to "B<Display>", add songs to your playlist and scroll down/up in the playlist 
 window until you see all songs' time infos. If you don't do this, you'll get 
@@ -937,7 +937,7 @@ Burak Gürsoy, E<lt>burakE<64>cpan.orgE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2003-2006 Burak Gürsoy. All rights reserved.
+Copyright 2003-2009 Burak Gürsoy. All rights reserved.
 
 =head1 LICENSE
 

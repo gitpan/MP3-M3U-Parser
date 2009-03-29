@@ -8,6 +8,7 @@ WriteMakefile(
       'IO::File'       => 0,
       'Cwd'            => 0,
       'Text::Template' => 0,
+      'Test::More'     => '0.40',
    },
    ($] >= 5.005 ? (
    AUTHOR   => 'Burak Gursoy <burak@cpan.org>',
