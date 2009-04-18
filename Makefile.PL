@@ -1,3 +1,4 @@
+#!perl
 use ExtUtils::MakeMaker;
 
 WriteMakefile(

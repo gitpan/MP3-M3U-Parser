@@ -7,6 +7,7 @@ t/05-sub_html.t
 t/06-sub_search.t
 t/07-scalar_xml.t
 t/08-scalar_html.t
+tools/Build.pm
 eg/m3u.cgi
 test.m3u
 Changes
@@ -14,4 +15,5 @@ Makefile.PL
 Build.PL
 MANIFEST
 README
+LICENSE
 META.yml
