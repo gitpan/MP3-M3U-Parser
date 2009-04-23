@@ -1,6 +1,6 @@
 ---
 name: MP3-M3U-Parser
-version: 2.22
+version: 2.23
 author:
   - 'Burak Gursoy <burak@cpan.org>'
 abstract: MP3 playlist parser.
@@ -18,12 +18,13 @@ build_requires:
 provides:
   MP3::M3U::Parser:
     file: lib/MP3/M3U/Parser.pm
-    version: 2.22
+    version: 2.23
   MP3::M3U::Parser::Dummy:
     file: lib/MP3/M3U/Parser.pm
 no_index:
   directory:
-    - tools
+    - monolithic_version
+    - builder
     - t
 generated_by: Module::Build version 0.32
 meta-spec:

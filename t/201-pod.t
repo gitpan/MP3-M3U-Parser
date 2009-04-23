@@ -1,6 +1,5 @@
 #!/usr/bin/env perl -w
 use strict;
-use lib '..';
 use Test::More;
 
 my @errors;

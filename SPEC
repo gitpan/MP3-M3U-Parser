@@ -1,0 +1,14 @@
+{
+    module_name    => 'MP3::M3U::Parser',
+    requires       => {
+        'File::Spec'     => 0,
+        'IO::File'       => 0,
+        'Cwd'            => 0,
+        'Text::Template' => 0,
+    },
+    meta_merge => {
+        resources => {
+            repository => 'http://bitbucket.org/burak/cpan-mp3-m3u-parser/',
+        },
+    },
+}

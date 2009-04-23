@@ -1,19 +1,22 @@
 lib/MP3/M3U/Parser.pm
-t/01-pod.t
-t/02-pod-coverage.t
 t/03-basic.t
 t/04-basic_xml.t
 t/05-sub_html.t
 t/06-sub_search.t
 t/07-scalar_xml.t
 t/08-scalar_html.t
-tools/Build.pm
 eg/m3u.cgi
 test.m3u
 Changes
-Makefile.PL
 Build.PL
 MANIFEST
 README
+SPEC
+builder/Build.pm
+builder/Build/Spec.pm
+t/200-all-modules-have-the-same-version.t
+t/201-pod.t
+t/202-pod-coverage.t
+Makefile.PL	Generated automatically
 LICENSE
 META.yml

@@ -11,7 +11,7 @@ use constant SONG    => 4;
 
 use constant MAXDATA => 4; # Maximum index number of the data table
 
-$VERSION = '2.22';
+$VERSION = '2.23';
 
 sub new {
    # -parse_path -seconds -search -overwrite
@@ -608,8 +608,8 @@ MP3::M3U::Parser - MP3 playlist parser.
 
 =head1 DESCRIPTION
 
-This document describes version C<2.22> of C<MP3::M3U::Parser>
-released on C<18 April 2009>.
+This document describes version C<2.23> of C<MP3::M3U::Parser>
+released on C<23 April 2009>.
 
 B<MP3::M3U::Parser> is a parser for M3U mp3 playlist files. It also 
 parses the EXTINF lines (which contains id3 song name and time) if 
