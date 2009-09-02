@@ -2,8 +2,9 @@ package Build;
 use strict;
 use vars qw( $VERSION );
 use warnings;
+use constant TAINT_SHEBANG => "#!perl -Tw\nuse constant TAINTMODE => 1;\n";
 
-$VERSION = '0.50';
+$VERSION = '0.62';
 
 use File::Find;
 use File::Spec;
@@ -35,6 +36,9 @@ __PACKAGE__->add_property( build_monolith      => 0  );
 __PACKAGE__->add_property( change_versions     => 0  );
 __PACKAGE__->add_property( vanilla_makefile_pl => 1  );
 __PACKAGE__->add_property( monolith_add_to_top => [] );
+__PACKAGE__->add_property( taint_mode_tests    => 0  );
+__PACKAGE__->add_property( add_pod_author_copyright_license => 0 );
+__PACKAGE__->add_property( copyright_first_year => 0 );
 
 sub new {
    my $class = shift;
@@ -55,6 +59,16 @@ sub create_build_script {
    return $self->SUPER::create_build_script( @_ );
 }
 
+sub mytrim {
+   my $self = shift;
+   my $s = shift;
+   return $s if ! $s; # false or undef
+   my $extra = shift || '';
+      $s =~ s{\A \s+   }{$extra}xms;
+      $s =~ s{   \s+ \z}{$extra}xms;
+   return $s;
+}
+
 sub ACTION_dist {
    my $self = shift;
    warn  sprintf(
@@ -73,9 +87,40 @@ sub ACTION_dist {
       },
       no_chdir => 1,
    }, "lib";
+   $self->_create_taint_mode_tests      if $self->taint_mode_tests;
    $self->_change_versions( \@modules ) if $self->change_versions;
    $self->_build_monolith(  \@modules ) if $self->build_monolith;
    $self->SUPER::ACTION_dist( @_ );
+}
+
+sub _create_taint_mode_tests {
+   my $self   = shift;
+   require File::Basename;
+   my @tests  = glob 't/*.t';
+   my @taints = map {
+                  my $t = File::Basename::basename( $_ );
+                  my($num,$rest) = split /\-/xms, $t, 2;
+                  "t/$num-taint-mode-$rest";
+               }  @tests;
+
+   for my $i ( 0..$#tests ) {
+      next if $tests[$i] =~ m{ pod[.]t           \z }xms;
+      next if $tests[$i] =~ m{ pod\-coverage[.]t \z }xms;
+      next if $tests[$i] =~ m{ all\-modules\-have\-the\-same\-version[.]t \z }xms;
+
+      next if -e $taints[$i]; # already created!
+
+      open my $ORIG, '<:raw', $tests[$i]  or die "Can not open file($tests[$i]): $!";
+      open my $DEST, '>:raw', $taints[$i] or die "Can not open file($taints[$i]): $!";
+      print $DEST TAINT_SHEBANG;
+      while ( my $line = readline $ORIG ) {
+         print $DEST $line;
+      }
+      close $ORIG;
+      close $DEST;
+      $self->_write_file( '>>', 'MANIFEST', "$taints[$i]\n");
+   }
+   return;
 }
 
 sub _change_versions {
@@ -120,9 +165,24 @@ sub _change_versions {
               .  "not suitable for production use.\n";
       }
 
+      my $acl = $self->add_pod_author_copyright_license;
+      my $acl_buf;
+
       CHANGE_POD: while ( my $line = readline $RO_FH ) {
+         if ( $acl && $line =~ m{ \A =cut }xms ) {
+            $acl_buf = $line; # buffer the last line
+            last;
+         }
          print $W_FH $line;
          print $W_FH $pod if $line =~ RE_POD_LINE;
+      }
+
+      if ( $acl && defined $acl_buf ) {
+         warn "\tADDING AUTHOR COPYRIGHT LICENSE TO POD\n";
+         print $W_FH $self->_pod_author_copyright_license, $acl_buf;
+         while ( my $line = readline $RO_FH ) {
+            print $W_FH $line;
+         }
       }
 
       close $RO_FH or die "Can not close file($mod): $!";
@@ -186,7 +246,7 @@ sub _build_monolith {
                         if $is_eof && ! $add_pod{ $mod }++;
                   };
          $is_eof ? do { $POD .= $line; }
-                : do {
+                 : do {
                      print { $is_pre ? $BUFFER : $MONO } $line;
                   };
       }
@@ -255,7 +315,7 @@ sub _build_monolith {
    PROVE: {
       warn "\tTESTING MONOLITH\n";
       local $ENV{AUTHOR_TESTING_MONOLITH_BUILD} = 1;
-      my @output = qx(prove -Isingle);
+      my @output = qx(prove -Imonolithic_version);
       print "\t$_" for @output;
       chomp(my $result = pop @output);
       die MONOLITH_TEST_FAIL if $result ne 'Result: PASS';
@@ -349,6 +409,34 @@ WriteMakefile(
     ) : ()),
 );
 VANILLA_MAKEFILE_PL
+}
+
+sub _pod_author_copyright_license {
+   my $self = shift;
+   my $da   = $self->dist_author; # support only 1 author for now
+   my($author, $email) = $da->[0] =~ m{ (.+?) < ( .+?) > }xms;
+   $author = $self->mytrim( $author );
+   $email  = $self->mytrim( $email );
+   my $cfy = $self->copyright_first_year;
+   my $year = (localtime time)[5] + 1900;
+   $year = "$cfy - $year" if $cfy && $cfy != $year && $cfy < $year;
+   my $perl = sprintf( '%vd', $^V );
+   return <<"POD";
+=head1 AUTHOR
+
+$author <$email>.
+
+=head1 COPYRIGHT
+
+Copyright $year $author. All rights reserved.
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify 
+it under the same terms as Perl itself, either Perl version $perl or, 
+at your option, any later version of Perl 5 you may have available.
+
+POD
 }
 
 1;

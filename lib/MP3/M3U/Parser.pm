@@ -11,7 +11,7 @@ use constant SONG    => 4;
 
 use constant MAXDATA => 4; # Maximum index number of the data table
 
-$VERSION = '2.23';
+$VERSION = '2.24';
 
 sub new {
    # -parse_path -seconds -search -overwrite
@@ -572,7 +572,9 @@ package MP3::M3U::Parser::Dummy;
 
 1;
 
-__END__;
+__END__
+
+=pod
 
 =head1 NAME
 
@@ -608,8 +610,8 @@ MP3::M3U::Parser - MP3 playlist parser.
 
 =head1 DESCRIPTION
 
-This document describes version C<2.23> of C<MP3::M3U::Parser>
-released on C<23 April 2009>.
+This document describes version C<2.24> of C<MP3::M3U::Parser>
+released on C<3 September 2009>.
 
 B<MP3::M3U::Parser> is a parser for M3U mp3 playlist files. It also 
 parses the EXTINF lines (which contains id3 song name and time) if 
@@ -936,16 +938,16 @@ L<MP3::M3U>.
 
 =head1 AUTHOR
 
-Burak Gürsoy, E<lt>burakE<64>cpan.orgE<gt>
+Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2003-2009 Burak Gürsoy. All rights reserved.
+Copyright 2003 - 2009 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.8.8 or, 
+it under the same terms as Perl itself, either Perl version 5.10.0 or, 
 at your option, any later version of Perl 5 you may have available.
 
 =cut
