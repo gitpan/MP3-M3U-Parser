@@ -1,9 +1,9 @@
-This software is copyright (c) 2009 by Burak Gursoy <burak@cpan.org>.
+This software is copyright (c) 2010 by Burak Gursoy <burak@cpan.org>.
 
 This is free software; you can redistribute it and/or modify it under
-the same terms as perl itself.
+the same terms as the Perl 5 programming language system itself.
 
-Terms of Perl itself
+Terms of the Perl programming language system itself
 
 a) the GNU General Public License as published by the Free
    Software Foundation; either version 1, or (at your option) any
@@ -12,7 +12,7 @@ b) the "Artistic License"
 
 --- The GNU General Public License, Version 1, February 1989 ---
 
-This software is Copyright (c) 2009 by Burak Gursoy <burak@cpan.org>.
+This software is Copyright (c) 2010 by Burak Gursoy <burak@cpan.org>.
 
 This is free software, licensed under:
 
@@ -270,7 +270,7 @@ That's all there is to it!
 
 --- The Artistic License 1.0 ---
 
-This software is Copyright (c) 2009 by Burak Gursoy <burak@cpan.org>.
+This software is Copyright (c) 2010 by Burak Gursoy <burak@cpan.org>.
 
 This is free software, licensed under:
 

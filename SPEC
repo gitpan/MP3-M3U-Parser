@@ -1,10 +1,11 @@
 {
-    module_name    => 'MP3::M3U::Parser',
-    requires       => {
-        'File::Spec'     => 0,
-        'IO::File'       => 0,
-        'Cwd'            => 0,
+    module_name => 'MP3::M3U::Parser',
+    requires    => {
         'Text::Template' => 0,
+        ( $] < 5.006 ? ( 'warnings::compat'  => 0 ) : () ),
+    },
+    recommends => {
+        'HTML::Entities' => 0,
     },
     meta_merge => {
         resources => {

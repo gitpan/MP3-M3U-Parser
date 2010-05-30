@@ -14,5 +14,6 @@ WriteMakefile(
     ($] >= 5.005 ? (
     AUTHOR       => $spec{dist_author},
     ABSTRACT     => $spec{ABSTRACT},
+    EXE_FILES    => $spec{EXE_FILES},
     ) : ()),
 );

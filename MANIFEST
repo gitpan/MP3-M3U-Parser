@@ -1,21 +1,28 @@
 lib/MP3/M3U/Parser.pm
-t/03-basic.t
+lib/MP3/M3U/Parser/Constants.pm
+lib/MP3/M3U/Parser/Dummy.pm
+lib/MP3/M3U/Parser/Export.pm
+t/01-basic.t
+t/02-export.t
 t/04-basic_xml.t
 t/05-sub_html.t
 t/06-sub_search.t
 t/07-scalar_xml.t
 t/08-scalar_html.t
 eg/m3u.cgi
-test.m3u
+t/data/test.m3u
 Changes
 Build.PL
 MANIFEST
 README
 SPEC
+.perlcriticrc
 builder/Build.pm
 builder/Build/Spec.pm
 t/201-pod.t
 t/202-pod-coverage.t
 Makefile.PL	Generated automatically
+monolithic_version/README
+monolithic_version/MP3/M3U/Parser.pm	The monolithic version of MP3::M3U::Parser to ease dropping into web servers. Generated automatically.
 LICENSE
 META.yml

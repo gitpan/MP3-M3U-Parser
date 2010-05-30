@@ -1,16 +1,30 @@
 #!/usr/bin/env perl -w
 use strict;
-use Test::More qw(no_plan);
-use MP3::M3U::Parser;
+use warnings;
+use IO::File;
+use Carp       qw( croak   );
+use Test::More qw( no_plan );
+use File::Spec;
 
-my $output = '';
-my $parser = MP3::M3U::Parser->new(-seconds => 'format');
-   $parser->parse('test.m3u');
-   $parser->export(-format  => 'html',
-                   -toscalar => \$output);
+BEGIN {
+    use_ok('MP3::M3U::Parser');
+}
 
-open  FILE, ">06_scalar_html.html" or die "I can not open file!";
-print FILE $output;
-close FILE;
+my $output = q{};
+my $parser = MP3::M3U::Parser->new(
+                -seconds => 'format'
+            );
+$parser->parse(
+    File::Spec->catfile( qw/ t data test.m3u / )
+);
+$parser->export(
+    -format   => 'html',
+    -toscalar => \$output,
+);
 
-ok(1);
+my $fh = IO::File->new;
+$fh->open( '08_scalar_html.html', '>' ) or croak "I can not open file: $!";
+print {$fh} $output or croak "Can't print to FH: $!";
+$fh->close;
+
+ok(1, 'Some test');

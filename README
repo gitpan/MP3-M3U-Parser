@@ -38,8 +38,8 @@ All are available on CPAN
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2003-2009 Burak Gürsoy <burak@cpan.org>. All rights reserved.
+Copyright (C) 2003-2010 Burak Gürsoy <burak@cpan.org>. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.8.8 or, 
+it under the same terms as Perl itself, either Perl version 5.10.1 or, 
 at your option, any later version of Perl 5 you may have available.

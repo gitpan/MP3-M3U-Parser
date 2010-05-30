@@ -14,10 +14,10 @@ my $parser = MP3::M3U::Parser->new(
                 -search     => q{},
                 -overwrite  => 1,
                 -encoding   => 'ISO-8859-9',
-                -expformat  => 'xml',
+                -expformat  => 'html',
             );
 
-is(ref $parser, 'MP3::M3U::Parser', 'Parser' );
+ok(ref $parser eq 'MP3::M3U::Parser', 'Parser');
 
 is( $parser,
     $parser->parse( File::Spec->catfile( qw/ t data test.m3u / ) ),
@@ -27,9 +27,7 @@ is( $parser,
 my $result = $parser->result;
 is(ref $result, 'ARRAY', 'Parser');
 
-is( $parser, $parser->export(-file => '04_basic_xml.xml'), 'Parser');
-
+is($parser, $parser->export(-file => '03_basic.html'), 'Parser');
 my %info = $parser->info;
-is( ref $info{drive}, 'ARRAY', 'Parser' );
-
-is( $parser, $parser->reset, 'Parser' );
+is(ref $info{drive}, 'ARRAY', 'Parser');
+is($parser, $parser->reset, 'Parser');

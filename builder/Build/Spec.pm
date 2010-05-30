@@ -5,13 +5,18 @@ use Exporter ();
 use Carp qw( croak );
 use constant DEFAULT_AUTHOR => 'Burak Gursoy <burak@cpan.org>';
 use constant OS_ERROR       => qr{OS \s+ unsupported}xms;
+use base qw( Exporter );
 
-$VERSION   = '0.50';
-@ISA       = qw( Exporter );
-@EXPORT    = qw( spec );
-@EXPORT_OK = qw( mm_spec );
+# since this is a builder we don't care about warnings.pm to support older perl
+## no critic (RequireUseWarnings)
 
-sub spec () {
+BEGIN {
+   $VERSION   = '0.64';
+   @EXPORT    = qw( spec );
+   @EXPORT_OK = qw( mm_spec );
+}
+
+sub spec {
     my $file = 'SPEC';
     my $spec = do $file;
 
@@ -21,7 +26,7 @@ sub spec () {
     : ! $spec                ? croak "$file did not return a true value"
     : ref($spec) ne 'HASH'   ? croak "Return type of $file is not HASH"
     : ! $spec->{module_name} ? croak "The specification returned from $file does"
-                                    ." not have the mandatory 'module_name' key"
+                                    .q{ not have the mandatory 'module_name' key}
     : %{ $spec };
     ;
 
@@ -45,13 +50,14 @@ sub trim {
 
 # Makefile.PL related things
 
-sub mm_spec () {
+sub mm_spec {
     my %spec = spec();
-    (my $file = $spec{module_name}) =~ s{::}{/}g;
+    (my $file = $spec{module_name}) =~ s{::}{/}xmsg;
     $spec{VERSION_FROM} = "lib/$file.pm";
     $spec{PREREQ_PM}    = { %{ $spec{requires} }, %{ $spec{build_requires} } };
     _mm_recommend( %spec );
-    $spec{ABSTRACT} = _mm_abstract( $spec{VERSION_FROM} );
+    $spec{ABSTRACT}  = _mm_abstract( $spec{VERSION_FROM} );
+    $spec{EXE_FILES} = $spec{script_files} ? $spec{script_files} : [];
     return %spec;
 }
 
@@ -63,7 +69,8 @@ sub _mm_recommend {
     foreach my $m ( sort keys %rec ) {
         $info .= sprintf "\t%s\tv%s\n", $m, $rec{$m};
     }
-    print "$info\n";
+    my $pok = print "$info\n";
+    return;
 }
 
 sub _mm_abstract {
@@ -72,21 +79,21 @@ sub _mm_abstract {
     my $fh = IO::File->new;
     $fh->open( $file, 'r' ) || croak "Can not read $file: $!";
     binmode $fh;
-    while ( my $line = readline $fh ) {
+    while ( my $line = <$fh> ) {
         chomp $line;
         last if $line eq '=head1 NAME';
     }
     my $buf;
-    while ( my $line = readline $fh ) {
+    while ( my $line = <$fh> ) {
         chomp $line;
         last if $line =~ m{ \A =head }xms;
         $buf .= $line;
     }
     $fh->close || croak "Can not close $file: $!";
-    croak "Unable to get ABSTRACT" if ! $buf;
+    croak 'Unable to get ABSTRACT' if ! $buf;
     $buf = trim( $buf );
     my($mod, $desc) = split m{\-}xms, $buf, 2;
-    $desc = trim( $desc ) || croak "Unable to get ABSTRACT";
+    $desc = trim( $desc ) || croak 'Unable to get ABSTRACT';
     return $desc;
 }
 

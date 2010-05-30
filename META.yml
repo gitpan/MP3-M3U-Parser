@@ -1,34 +1,40 @@
 ---
-name: MP3-M3U-Parser
-version: 2.24
+abstract: 'MP3 playlist parser.'
 author:
   - 'Burak Gursoy <burak@cpan.org>'
-abstract: MP3 playlist parser.
-license: perl
-resources:
-  license: http://dev.perl.org/licenses/
-  repository: http://bitbucket.org/burak/cpan-mp3-m3u-parser/
 build_requires:
   Test::More: 0.40
-requires:
-  Cwd: 0
-  File::Spec: 0
-  IO::File: 0
-  Text::Template: 0
 configure_requires:
-  Module::Build: 0.35
-provides:
-  MP3::M3U::Parser:
-    file: lib/MP3/M3U/Parser.pm
-    version: 2.24
-  MP3::M3U::Parser::Dummy:
-    file: lib/MP3/M3U/Parser.pm
+  Module::Build: 0.36
+generated_by: 'Module::Build version 0.3607'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: MP3-M3U-Parser
 no_index:
   directory:
     - monolithic_version
     - builder
     - t
-generated_by: Module::Build version 0.35
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+provides:
+  MP3::M3U::Parser:
+    file: lib/MP3/M3U/Parser.pm
+    version: 2.30
+  MP3::M3U::Parser::Constants:
+    file: lib/MP3/M3U/Parser/Constants.pm
+    version: 2.30
+  MP3::M3U::Parser::Dummy:
+    file: lib/MP3/M3U/Parser/Dummy.pm
+    version: 2.30
+  MP3::M3U::Parser::Export:
+    file: lib/MP3/M3U/Parser/Export.pm
+    version: 2.30
+recommends:
+  HTML::Entities: 0
+requires:
+  Text::Template: 0
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: http://bitbucket.org/burak/cpan-mp3-m3u-parser/
+version: 2.30
