@@ -5,8 +5,9 @@ author:
 build_requires:
   Test::More: 0.40
 configure_requires:
-  Module::Build: 0.36
-generated_by: 'Module::Build version 0.3607'
+  Module::Build: 0.40
+dynamic_config: 1
+generated_by: 'Module::Build version 0.4001, CPAN::Meta::Converter version 2.120921'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -17,19 +18,20 @@ no_index:
     - monolithic_version
     - builder
     - t
+    - xt
 provides:
   MP3::M3U::Parser:
     file: lib/MP3/M3U/Parser.pm
-    version: 2.30
+    version: 2.31
   MP3::M3U::Parser::Constants:
     file: lib/MP3/M3U/Parser/Constants.pm
-    version: 2.30
+    version: 2.31
   MP3::M3U::Parser::Dummy:
     file: lib/MP3/M3U/Parser/Dummy.pm
-    version: 2.30
+    version: 2.31
   MP3::M3U::Parser::Export:
     file: lib/MP3/M3U/Parser/Export.pm
-    version: 2.30
+    version: 2.31
 recommends:
   HTML::Entities: 0
 requires:
@@ -37,4 +39,4 @@ requires:
 resources:
   license: http://dev.perl.org/licenses/
   repository: http://bitbucket.org/burak/cpan-mp3-m3u-parser/
-version: 2.30
+version: 2.31

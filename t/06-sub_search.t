@@ -5,9 +5,11 @@ use Carp       qw( croak   );
 use Test::More qw( no_plan );
 use File::Spec;
 
-BEGIN {
-    use_ok('MP3::M3U::Parser');
-}
+use MP3::M3U::Parser;
+
+my $file = '06_sub_search.html';
+
+unlink $file if -e $file;
 
 my $parser = MyParser->new(
                 -search => 'fred mer'
@@ -19,7 +21,7 @@ $parser->parse(
 
 $parser->export(
     -format    => 'html',
-    -file      => '06_sub_search.html',
+    -file      => $file,
     -overwrite => 1,
 );
 
@@ -28,7 +30,7 @@ ok(1, 'Some test');
 package MyParser;
 use base qw( MP3::M3U::Parser );
 
-sub _search {
+sub _search { ## no critic (ProhibitUnusedPrivateSubroutines)
     my $self   = shift;
     my $path   = shift;
     my $id3    = shift;

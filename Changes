@@ -1,6 +1,7 @@
 Revision history for Perl extension MP3::M3U::Parser.
 
-Time zone is GMT+2.
+2.31 Sun Jul  8 01:50:04 2012
+    => Bump version.
 
 2.30 Thu Dec 31 04:39:58 2009
     => Perl::Critic refactoring.

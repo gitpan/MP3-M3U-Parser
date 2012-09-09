@@ -3,13 +3,15 @@ use strict;
 use warnings;
 use vars qw( $VERSION );
 
-$VERSION = '2.30';
+$VERSION = '2.31';
 
 1;
 
 __END__
 
 =pod
+
+=encoding utf8
 
 =head1 NAME
 
@@ -21,8 +23,8 @@ Private module.
 
 =head1 DESCRIPTION
 
-This document describes version C<2.30> of C<MP3::M3U::Parser::Dummy>
-released on C<30 May 2010>.
+This document describes version C<2.31> of C<MP3::M3U::Parser::Dummy>
+released on C<9 September 2012>.
 
 -
 
@@ -36,12 +38,11 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2003 - 2010 Burak Gursoy. All rights reserved.
+Copyright 2003 - 2012 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
-This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.10.1 or, 
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.12.3 or,
 at your option, any later version of Perl 5 you may have available.
-
 =cut

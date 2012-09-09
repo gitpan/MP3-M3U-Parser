@@ -6,7 +6,7 @@ use base qw( MP3::M3U::Parser::Export );
 use Carp qw( croak );
 use MP3::M3U::Parser::Constants;
 
-$VERSION = '2.30';
+$VERSION = '2.31';
 
 my %LOADED;
 
@@ -373,6 +373,8 @@ __END__
 
 =pod
 
+=encoding utf8
+
 =head1 NAME
 
 MP3::M3U::Parser - MP3 playlist parser.
@@ -415,8 +417,8 @@ MP3::M3U::Parser - MP3 playlist parser.
 
 =head1 DESCRIPTION
 
-This document describes version C<2.30> of C<MP3::M3U::Parser>
-released on C<30 May 2010>.
+This document describes version C<2.31> of C<MP3::M3U::Parser>
+released on C<9 September 2012>.
 
 B<MP3::M3U::Parser> is a parser for M3U mp3 playlist files. It also 
 parses the EXTINF lines (which contains id3 song name and time) if 
@@ -472,6 +474,9 @@ set this parameter to 'C<asis>' to not to remove the drive letter from the real
 path. Also, you "must" ignore the drive table contents which will still contain 
 a possibly wrong value; C<export> does take the drive letters from the drive
 tables. So, you can not use the drive area in the exported xml (for example).
+
+B<Note:> you probably want to set this parameter to 'C<asis>' on a non-Windows
+machine.
 
 =item C<-overwrite>
 
@@ -727,10 +732,6 @@ you can have an easy maintained archive.
 HTML and XML escaping is limited to these characters: 
 E<amp> E<quot> E<lt> E<gt> B<unless> you have C<HTML::Entities> installed.
 
-=head1 BUGS
-
-Contact the author if you find any bugs.
-
 =head1 SEE ALSO
 
 L<HTML::Entities>.
@@ -741,12 +742,11 @@ Burak Gursoy <burak@cpan.org>.
 
 =head1 COPYRIGHT
 
-Copyright 2003 - 2010 Burak Gursoy. All rights reserved.
+Copyright 2003 - 2012 Burak Gursoy. All rights reserved.
 
 =head1 LICENSE
 
-This library is free software; you can redistribute it and/or modify 
-it under the same terms as Perl itself, either Perl version 5.10.1 or, 
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.12.3 or,
 at your option, any later version of Perl 5 you may have available.
-
 =cut

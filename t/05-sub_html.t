@@ -4,9 +4,11 @@ use warnings;
 use File::Spec;
 use Test::More qw( no_plan );
 
-BEGIN {
-    use_ok('MP3::M3U::Parser');
-}
+use MP3::M3U::Parser;
+
+my $file = '05_sub_html.html';
+
+unlink $file if -e $file;
 
 my $parser = MyParser->new;
 $parser->parse(
@@ -14,7 +16,7 @@ $parser->parse(
 );
 $parser->export(
     -format    => 'html',
-    -file      => '05_sub_html.html',
+    -file      => $file,
     -overwrite => 1,
 );
 
@@ -23,7 +25,7 @@ ok(1, 'Some test');
 package MyParser;
 use base qw(MP3::M3U::Parser);
 
-sub _template {
+sub _template { ## no critic (ProhibitUnusedPrivateSubroutines)
    return <<'MP3M3UPARSERTEMPLATE';
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
    "http://www.w3.org/TR/html4/loose.dtd">
